@@ -90,7 +90,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
   };
 
   const handleDelete = async (id: number) => {
-    // CORREÇÃO: Usar Modal/Alert para confirmação (sem window.confirm)
+    // CORREÇÃO: Usar Modal/Alert para confirmação (mantendo window.confirm por enquanto)
     if (!window.confirm("Tem certeza que deseja remover este endereço?"))
       return;
 
@@ -111,8 +111,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
   // CORREÇÃO: Função para definir o endereço principal
   const handleSetPrincipal = async (id: number) => {
     try {
-      // PATCH /endereco/:id
-      // Envia APENAS o campo principal para marcar. O Backend faz o resto.
+      // PATCH /endereco/:id com { principal: true }
       await axios.patch(`${API_ENDERECO_URL}/${id}`, { principal: true });
       setMessage({
         type: "success",
@@ -148,12 +147,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
     }
 
     try {
+      // Garante que o estado está em maiúsculo no payload, se existir
+      const finalState = currentAddress.estado
+        ? currentAddress.estado.toUpperCase()
+        : "";
+
       if (currentAddress?.id) {
         // PATCH: Atualiza /endereco/:id
-        // Garante que o clienteId está no payload (necessário para o DTO do Backend)
         const payload = {
           ...currentAddress,
           clienteId: user.id,
+          estado: finalState,
         };
         await axios.patch(`${API_ENDERECO_URL}/${currentAddress.id}`, payload);
         setMessage({
@@ -162,7 +166,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
         });
       } else {
         // POST: Cria /endereco (usando clienteId)
-        await axios.post(API_ENDERECO_URL, currentAddress);
+        const payload = {
+          ...currentAddress,
+          estado: finalState,
+        };
+        await axios.post(API_ENDERECO_URL, payload);
         setMessage({ type: "success", text: "Endereço criado com sucesso!" });
       }
 
@@ -180,23 +188,41 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
     }
   };
 
+  // --- Lógica de Tratamento de Alteração de Estado de Input ---
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const target = e.target as
+      | HTMLInputElement
+      | HTMLTextAreaElement
+      | HTMLSelectElement;
+    let { name, value, type } = target;
+
+    // Lógica de Filtragem e Normalização (UX)
+
+    if (name === "numero") {
+      // Filtra para permitir apenas números
+      value = value.replace(/[^0-9]/g, "");
+    }
+
+    if (name === "estado") {
+      // Filtra para permitir apenas letras, força maiúsculas e limita a 2 caracteres.
+      // RN: Garante o formato UF (2 letras maiúsculas).
+      value = value
+        .replace(/[^a-zA-Z]/g, "")
+        .toUpperCase()
+        .slice(0, 2);
+    }
+
+    setCurrentAddress((prev) => ({
+      ...prev!,
+      [name]:
+        type === "checkbox" ? (target as HTMLInputElement).checked : value,
+    }));
+  };
+
   // --- Formulário de Edição/Criação ---
   if (isEditing && currentAddress) {
-    const handleChange = (
-      e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-    ) => {
-      const target = e.target as
-        | HTMLInputElement
-        | HTMLTextAreaElement
-        | HTMLSelectElement;
-      const { name, value, type } = target;
-      setCurrentAddress((prev) => ({
-        ...prev!,
-        [name]:
-          type === "checkbox" ? (target as HTMLInputElement).checked : value,
-      }));
-    };
-
     return (
       <Container className="my-5">
         <h2>
@@ -224,10 +250,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
                     <Form.Label>Número</Form.Label>
                     <Form.Control
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       name="numero"
                       value={currentAddress.numero || ""}
                       onChange={handleChange}
                       required
+                      maxLength={10}
+                      placeholder="Digite apenas números"
                     />
                   </Form.Group>
                 </Col>
@@ -264,9 +294,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
                       type="text"
                       name="estado"
                       value={currentAddress.estado || ""}
-                      onChange={handleChange}
+                      onChange={handleChange} // Usa o handleChange corrigido
                       required
                       maxLength={2}
+                      className="text-uppercase"
                     />
                   </Form.Group>
                 </Col>

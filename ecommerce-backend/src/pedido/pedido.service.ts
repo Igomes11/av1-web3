@@ -50,11 +50,11 @@ export class PedidoService {
       );
     }
 
-    // 2. Prepara o Pedido (Status ABERTO)
+    // 2. Prepara o Pedido (CORREÇÃO: Inicia em AGUARDANDO_PAGAMENTO para o fluxo de checkout)
     const novoPedido = this.pedidoRepository.create({
       cliente,
       endereco,
-      status: PedidoStatus.ABERTO,
+      status: PedidoStatus.AGUARDANDO_PAGAMENTO, // Alterado para AGUARDANDO_PAGAMENTO
       dataCriacao: new Date(),
     });
 
@@ -109,7 +109,6 @@ export class PedidoService {
   async updateStatus(id: number, newStatus: PedidoStatus): Promise<Pedido> {
     const pedido = await this.findOne(id);
 
-    //Impede a alteração de status se o pedido já foi pago ou cancelado.
     if (pedido.status === PedidoStatus.PAGO) {
       throw new BadRequestException(
         'Não é possível alterar o status de um pedido pago.',

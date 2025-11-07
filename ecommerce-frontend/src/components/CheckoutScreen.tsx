@@ -125,6 +125,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
 
       // Sucesso: Limpa o carrinho e navega para o histórico
       onClearCart();
+      // CORREÇÃO: Alerta de sucesso atualizado
       alert(
         `Pedido #${response.data.id} criado com sucesso! Status: AGUARDANDO_PAGAMENTO.`
       );
@@ -136,8 +137,8 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
         "Erro ao finalizar o pedido. Verifique o estoque e tente novamente.";
       if (axios.isAxiosError(err) && err.response?.data?.message) {
         errorMsg = Array.isArray(err.response.data.message)
-          ? err.response.data.message[0]
-          : err.response.data.message;
+          ? error.response.data.message[0]
+          : error.response.data.message;
       }
       setError(errorMsg);
     } finally {
@@ -192,7 +193,9 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
             <Card.Header>Endereço de Entrega</Card.Header>
             <Card.Body>
               <Form.Group controlId="selectAddress">
-                <Form.Label id="selectAddressLabel">Selecione o Endereço:</Form.Label>
+                <Form.Label id="selectAddressLabel">
+                  Selecione o Endereço:
+                </Form.Label>
                 <Form.Select
                   aria-labelledby="selectAddressLabel"
                   value={selectedAddressId || ""}
@@ -232,7 +235,8 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                         {product.nome} x {item.quantidade}
                       </span>
                       <span className="fw-bold">
-                        R$ {formatPrice(Number(product.preco) * item.quantidade)}
+                        R${" "}
+                        {formatPrice(Number(product.preco) * item.quantidade)}
                       </span>
                     </li>
                   );
@@ -251,7 +255,9 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
 
               <div className="d-flex justify-content-between fw-bold fs-4 mb-4">
                 <span>Total a Pagar:</span>
-                <span className="text-success">R$ {formatPrice(cartTotal)}</span>
+                <span className="text-success">
+                  R$ {formatPrice(cartTotal)}
+                </span>
               </div>
 
               <p className="text-muted">

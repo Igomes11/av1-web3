@@ -293,7 +293,6 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
             {/* Ações de Pagamento / Cancelamento (Visível apenas se o status for AGUARDANDO_PAGAMENTO) */}
             {order.status === "AGUARDANDO_PAGAMENTO" && (
               <div className="mt-4">
-                <Alert variant="warning">Ação Necessária: Simular Pagamento</Alert>
                 <Button
                   variant="primary"
                   className="me-2"
