@@ -117,24 +117,3 @@ export class Pedido {
   @JoinColumn()
   pagamento: Pagamento;
 }
-
-  // --- RELACIONAMENTOS ---
-
-  // N:1 com Cliente
-  @ManyToOne(() => Cliente, (cliente) => cliente.pedidos)
-  @JoinColumn({ name: 'cliente_id' })
-  cliente: Cliente;
-
-  // N:1 com Endereço
-  @ManyToOne(() => Endereco)
-  @JoinColumn({ name: 'endereco_id' })
-  endereco: Endereco;
-
-  // 1:N com ItemPedido
-  @OneToMany(() => ItemPedido, (itemPedido) => itemPedido.pedido)
-  itens: ItemPedido[];
-
-  // NOVO: 1:1 com Pagamento (relacionamento inverso)
-  @OneToOne(() => Pagamento, (pagamento) => pagamento.pedido)
-  pagamento: Pagamento;
-}

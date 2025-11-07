@@ -156,4 +156,3 @@ export class PedidoService {
     return this.pedidoRepository.save(pedido);
   }
 }
-}
