@@ -17,26 +17,53 @@ const API_PEDIDO_URL = "http://localhost:3000/pedido";
 const API_ENDERECO_URL = "http://localhost:3000/endereco";
 const API_PRODUTO_URL = "http://localhost:3000/produto";
 
+/**
+ * Interface que representa um item no carrinho
+ * @interface CartItem
+ */
 interface CartItem {
+  /** ID do produto no carrinho */
   productId: number;
+  /** Quantidade do produto no carrinho */
   quantidade: number;
 }
 
+/**
+ * DTO para criação de item do pedido
+ * @interface ItemPedidoDto
+ */
 interface ItemPedidoDto {
+  /** ID do produto a ser adicionado no pedido */
   produtoId: number;
+  /** Quantidade do produto no pedido */
   quantidade: number;
 }
 
+/**
+ * DTO para criação de um novo pedido
+ * @interface CreatePedidoDto
+ */
 interface CreatePedidoDto {
+  /** ID do cliente que está realizando o pedido */
   clienteId: number;
+  /** ID do endereço de entrega selecionado */
   enderecoId: number;
+  /** Lista de itens do pedido */
   itens: ItemPedidoDto[];
 }
 
+/**
+ * Props do componente de tela de checkout
+ * @interface CheckoutScreenProps
+ */
 interface CheckoutScreenProps {
+  /** Dados do usuário logado */
   user: User;
+  /** Lista de itens no carrinho */
   cartItems: CartItem[];
+  /** Função para limpar o carrinho após finalização do pedido */
   onClearCart: () => void;
+  /** Função para mudar a view atual da aplicação */
   onChangeView: (view: CurrentView) => void;
 }
 
@@ -55,9 +82,17 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
+  /**
+   * Efeito para carregar dados necessários ao checkout:
+   * - Endereços do cliente
+   * - Detalhes dos produtos no carrinho
+   */
   useEffect(() => {
+    // Criamos uma referência ao carrinho atual para comparação
+    const currentCartItems = cartItems;
+    
     const fetchData = async () => {
-      if (cartItems.length === 0) return;
+      if (currentCartItems.length === 0) return;
 
       try {
         // 1. Busca Endereços do Cliente
@@ -66,6 +101,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
         );
         setAddresses(addressResponse.data);
 
+        // Seleciona o endereço principal ou o primeiro da lista
         const principalAddress = addressResponse.data.find((a) => a.principal);
         if (principalAddress) {
           setSelectedAddressId(principalAddress.id);
@@ -74,13 +110,13 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
         }
 
         // 2. Busca detalhes dos produtos no carrinho
-        const productIds = cartItems.map((item) => item.productId);
+        const productIds = currentCartItems.map((item) => item.productId);
         const productsPromises = productIds.map((id) =>
           axios.get<Produto>(`${API_PRODUTO_URL}/${id}`)
         );
         const results = await Promise.all(productsPromises);
         setProductsDetails(results.map((res) => res.data));
-      } catch (err) {
+      } catch (error) {
         setError(
           "Erro ao carregar dados de checkout. Verifique se há endereços e produtos ativos no backend."
         );
@@ -90,8 +126,13 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     };
 
     fetchData();
-  }, [user.id, JSON.stringify(cartItems)]);
+  }, [user.id, cartItems]);
 
+  /**
+   * Calcula o valor total do pedido baseado nos itens do carrinho
+   * e seus respectivos preços
+   * @returns {number} Valor total do pedido
+   */
   const calculateTotal = () => {
     return cartItems.reduce((total, cartItem) => {
       const product = productsDetails.find((p) => p.id === cartItem.productId);
@@ -99,15 +140,23 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     }, 0);
   };
 
+  /**
+   * Processa a finalização do pedido
+   * Valida endereço, cria o pedido no backend e
+   * atualiza o estado da aplicação
+   */
   const handlePlaceOrder = async () => {
+    // Validação de endereço selecionado
     if (!selectedAddressId) {
       setError("Por favor, selecione um endereço de entrega.");
       return;
     }
 
+    // Atualiza estado para processamento
     setIsPlacingOrder(true);
     setError(null);
 
+    // Prepara dados do pedido
     const itensPedidoDto: ItemPedidoDto[] = cartItems.map((item) => ({
       produtoId: item.productId,
       quantidade: item.quantidade,
@@ -120,26 +169,25 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     };
 
     try {
-      // Cria o pedido no backend
+      // Envia pedido para criação no backend
       const response = await axios.post(API_PEDIDO_URL, orderData);
 
-      // Sucesso: Limpa o carrinho e navega para o histórico
+      // Limpa carrinho e exibe feedback
       onClearCart();
-      // CORREÇÃO: Alerta de sucesso atualizado
       alert(
         `Pedido #${response.data.id} criado com sucesso! Status: AGUARDANDO_PAGAMENTO.`
       );
 
-      // Redireciona para o histórico de pedidos
+      // Redireciona para histórico de pedidos
       onChangeView("history");
     } catch (err) {
-      let errorMsg =
-        "Erro ao finalizar o pedido. Verifique o estoque e tente novamente.";
+      let errorMsg = "Erro ao finalizar o pedido. Verifique o estoque e tente novamente.";
+      
       if (axios.isAxiosError(err) && err.response?.data?.message) {
-        errorMsg = Array.isArray(err.response.data.message)
-          ? error.response.data.message[0]
-          : error.response.data.message;
+        const responseMessage = err.response.data.message;
+        errorMsg = Array.isArray(responseMessage) ? responseMessage[0] : responseMessage;
       }
+      
       setError(errorMsg);
     } finally {
       setIsPlacingOrder(false);

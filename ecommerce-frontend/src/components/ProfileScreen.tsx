@@ -14,36 +14,53 @@ import {
 } from "react-bootstrap";
 import type { CurrentView, User, Endereco } from "../types/types";
 
-// URLs da API
+/**
+ * URL base da API para operações com endereços
+ * @todo Mover para arquivo de configuração em produção
+ */
 const API_ENDERECO_URL = "http://localhost:3000/endereco";
 
+/**
+ * Props do componente ProfileScreen
+ * @interface ProfileScreenProps
+ */
 interface ProfileScreenProps {
+  /** Dados do usuário logado */
   user: User;
+  /** Função para navegação entre views */
   onChangeView: (view: CurrentView) => void;
 }
 
+/**
+ * Componente de perfil do usuário
+ * Fornece interface para gerenciamento de endereços do usuário:
+ * - Listagem de endereços
+ * - Adição de novos endereços
+ * - Edição de endereços existentes
+ * - Definição de endereço principal
+ * - Exclusão de endereços
+ */
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
-  const [addresses, setAddresses] = useState<Endereco[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState<{
+  // Estados para gerenciamento de dados e UI
+  const [addresses, setAddresses] = useState<Endereco[]>([]);        // Lista de endereços do usuário
+  const [isLoading, setIsLoading] = useState(true);                 // Indicador de carregamento
+  const [message, setMessage] = useState<{                          // Sistema de mensagens
     type: "success" | "danger";
     text: string;
   } | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  // Note que 'clienteId' é adicionado para o POST/PATCH do backend
-  const [currentAddress, setCurrentAddress] = useState<
-    (Partial<Endereco> & { clienteId?: number }) | null
+  const [isEditing, setIsEditing] = useState(false);               // Controle do modo de edição
+  const [currentAddress, setCurrentAddress] = useState<             // Endereço em edição/criação
+    (Partial<Endereco> & { clienteId?: number }) | null            // Inclui clienteId para API
   >(null);
 
-  useEffect(() => {
-    fetchAddresses();
-  }, [user.id]);
-
+  /**
+   * Busca a lista de endereços do usuário no backend
+   */
   const fetchAddresses = async () => {
     setIsLoading(true);
     setMessage(null);
     try {
-      // GET /endereco/cliente/:clienteId
+      // Requisição GET para lista de endereços do cliente
       const response = await axios.get<Endereco[]>(
         `${API_ENDERECO_URL}/cliente/${user.id}`
       );
@@ -59,16 +76,28 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
     }
   };
 
+  // Carrega endereços quando o componente monta ou o usuário muda
+  useEffect(() => {
+    void fetchAddresses();
+  }, [user.id]);
+
+  /**
+   * Inicia edição de um endereço existente
+   * @param address - Endereço a ser editado
+   */
   const handleEdit = (address: Endereco) => {
-    // Garante que o clienteId está presente para a chamada PATCH (mesmo que não seja usado no backend)
     setCurrentAddress({
       ...address,
-      principal: !!address.principal,
-      clienteId: user.id,
+      principal: !!address.principal, // Garante boolean
+      clienteId: user.id,            // Necessário para API
     });
     setIsEditing(true);
   };
 
+  /**
+   * Inicia criação de um novo endereço
+   * Inicializa o formulário com valores vazios
+   */
   const handleNewAddress = () => {
     setCurrentAddress({
       logradouro: "",
@@ -83,24 +112,35 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
     setIsEditing(true);
   };
 
+  /**
+   * Cancela edição/criação de endereço
+   * Limpa estados e mensagens
+   */
   const handleCancel = () => {
     setIsEditing(false);
     setCurrentAddress(null);
     setMessage(null);
   };
 
+  /**
+   * Remove um endereço existente
+   * @param id - ID do endereço a ser removido
+   */
   const handleDelete = async (id: number) => {
-    // CORREÇÃO: Usar Modal/Alert para confirmação (mantendo window.confirm por enquanto)
-    if (!window.confirm("Tem certeza que deseja remover este endereço?"))
+    // @todo Substituir por modal de confirmação
+    if (!window.confirm("Tem certeza que deseja remover este endereço?")) {
       return;
+    }
 
     try {
-      // DELETE /endereco/:id
       await axios.delete(`${API_ENDERECO_URL}/${id}`);
-      setMessage({ type: "success", text: "Endereço removido com sucesso!" });
-      fetchAddresses();
+      setMessage({ 
+        type: "success", 
+        text: "Endereço removido com sucesso!" 
+      });
+      void fetchAddresses();
     } catch (err) {
-      console.error(err);
+      console.error("Erro ao remover endereço:", err);
       setMessage({
         type: "danger",
         text: "Erro ao remover endereço. Verifique se ele está vinculado a algum pedido.",
@@ -108,18 +148,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
     }
   };
 
-  // CORREÇÃO: Função para definir o endereço principal
+  /**
+   * Define um endereço como principal
+   * @param id - ID do endereço a ser definido como principal
+   */
   const handleSetPrincipal = async (id: number) => {
     try {
-      // PATCH /endereco/:id com { principal: true }
       await axios.patch(`${API_ENDERECO_URL}/${id}`, { principal: true });
       setMessage({
         type: "success",
         text: "Endereço definido como principal!",
       });
-      fetchAddresses();
+      void fetchAddresses();
     } catch (err) {
-      console.error("Erro no PATCH de principal:", err);
+      console.error("Erro ao definir endereço principal:", err);
       let errorMsg = "Erro ao definir endereço principal.";
 
       if (axios.isAxiosError(err) && err.response?.data?.message) {
@@ -132,10 +174,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
     }
   };
 
+  /**
+   * Salva um endereço (novo ou existente)
+   * @param e - Evento do formulário
+   */
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
 
+    // Validação de campos obrigatórios
     const { logradouro, numero, bairro, cidade, estado, cep } =
       currentAddress || {};
     if (!logradouro || !numero || !bairro || !cidade || !estado || !cep) {
@@ -188,7 +235,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
     }
   };
 
-  // --- Lógica de Tratamento de Alteração de Estado de Input ---
+  /**
+   * Manipula mudanças nos campos do formulário
+   * Inclui lógica de validação e normalização de dados
+   * @param e - Evento de mudança do input
+   */
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -196,32 +247,34 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
       | HTMLInputElement
       | HTMLTextAreaElement
       | HTMLSelectElement;
-    let { name, value, type } = target;
+    const { name, type } = target;
+    let { value } = target;
 
-    // Lógica de Filtragem e Normalização (UX)
-
-    if (name === "numero") {
-      // Filtra para permitir apenas números
-      value = value.replace(/[^0-9]/g, "");
+    // Validação e normalização por tipo de campo
+    switch (name) {
+      case "numero":
+        // Permite apenas dígitos numéricos
+        value = value.replace(/[^0-9]/g, "");
+        break;
+      case "estado":
+        // Garante formato UF: 2 letras maiúsculas
+        value = value
+          .replace(/[^a-zA-Z]/g, "")
+          .toUpperCase()
+          .slice(0, 2);
+        break;
     }
 
-    if (name === "estado") {
-      // Filtra para permitir apenas letras, força maiúsculas e limita a 2 caracteres.
-      // RN: Garante o formato UF (2 letras maiúsculas).
-      value = value
-        .replace(/[^a-zA-Z]/g, "")
-        .toUpperCase()
-        .slice(0, 2);
-    }
-
+    // Atualiza o estado do endereço atual
     setCurrentAddress((prev) => ({
       ...prev!,
-      [name]:
-        type === "checkbox" ? (target as HTMLInputElement).checked : value,
+      [name]: type === "checkbox" 
+        ? (target as HTMLInputElement).checked 
+        : value,
     }));
   };
 
-  // --- Formulário de Edição/Criação ---
+  // Interface do formulário de edição/criação
   if (isEditing && currentAddress) {
     return (
       <Container className="my-5">
@@ -360,19 +413,30 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user }) => {
     );
   }
 
+  /**
+   * Renderização principal do componente
+   * Exibe lista de endereços e opções de gerenciamento
+   */
   return (
     <Container className="my-5">
+      {/* Cabeçalho com saudação ao usuário */}
       <h2 className="mb-4">Olá, {user.email}</h2>
 
+      {/* Card de ações principais */}
       <Card className="shadow-sm mb-4">
         <Card.Body>
           <Card.Title className="mb-3">Gerenciamento de Endereços</Card.Title>
-          <Button variant="primary" onClick={handleNewAddress}>
+          <Button 
+            variant="primary" 
+            onClick={handleNewAddress}
+            title="Clique para adicionar um novo endereço"
+          >
             + Adicionar Novo Endereço
           </Button>
         </Card.Body>
       </Card>
 
+      {/* Sistema de mensagens para feedback */}
       {message && <Alert variant={message.type}>{message.text}</Alert>}
 
       <Card className="shadow-sm">

@@ -1,3 +1,9 @@
+/**
+ * pedido.service.ts
+ * Serviço responsável pelo gerenciamento de pedidos no sistema
+ * Lida com criação, consulta e atualização de status dos pedidos
+ */
+
 import {
   Injectable,
   NotFoundException,
@@ -24,69 +30,81 @@ export class PedidoService {
     private enderecoRepository: Repository<Endereco>,
     @InjectRepository(Produto)
     private produtoRepository: Repository<Produto>,
-
     private readonly itemPedidoService: ItemPedidoService,
   ) {}
 
+  /**
+   * Cria um novo pedido no sistema
+   * 
+   * @param createPedidoDto - Dados do pedido a ser criado
+   * @returns Promise com o pedido criado e seus itens
+   * @throws NotFoundException se cliente ou endereço não forem encontrados
+   * 
+   * Processo:
+   * 1. Valida existência do cliente e endereço
+   * 2. Cria o pedido com status inicial
+   * 3. Processa os itens do pedido
+   * 4. Calcula totais
+   * 5. Finaliza o pedido
+   */
   async create(createPedidoDto: CreatePedidoDto): Promise<Pedido> {
     const { clienteId, enderecoId, itens: itensDto } = createPedidoDto;
 
-    // 1. Validação de Entidades base
+    // Validação de cliente e endereço
     const cliente = await this.clienteRepository.findOne({
       where: { id: clienteId },
     });
     if (!cliente) {
-      throw new NotFoundException(
-        `Cliente com ID ${clienteId} não encontrado.`,
-      );
+      throw new NotFoundException(`Cliente com ID ${clienteId} não encontrado.`);
     }
 
     const endereco = await this.enderecoRepository.findOne({
       where: { id: enderecoId },
     });
     if (!endereco) {
-      throw new NotFoundException(
-        `Endereço com ID ${enderecoId} não encontrado.`,
-      );
+      throw new NotFoundException(`Endereço com ID ${enderecoId} não encontrado.`);
     }
 
-    // 2. Prepara o Pedido (CORREÇÃO: Inicia em AGUARDANDO_PAGAMENTO para o fluxo de checkout)
+    // Criação inicial do pedido
     const novoPedido = this.pedidoRepository.create({
       cliente,
       endereco,
-      status: PedidoStatus.AGUARDANDO_PAGAMENTO, // Alterado para AGUARDANDO_PAGAMENTO
+      status: PedidoStatus.AGUARDANDO_PAGAMENTO,
       dataCriacao: new Date(),
     });
 
-    // 3. Salva o pedido primeiro para obter um ID válido
     const pedidoSalvo = await this.pedidoRepository.save(novoPedido);
 
-    // 4. Processa e valida os itens, verificando o estoque e associando ao pedido salvo
+    // Processamento dos itens do pedido
     const itensEntityPromises = itensDto.map((itemDto) =>
       this.itemPedidoService.createItem(pedidoSalvo, itemDto),
     );
-
     const itensEntity = await Promise.all(itensEntityPromises);
 
-    // 4. Calcula Totais
+    // Cálculo dos totais
     let subtotalGeral = 0;
     let quantidadeTotal = 0;
-
     itensEntity.forEach((item) => {
       subtotalGeral += item.subtotal;
       quantidadeTotal += item.quantidade;
     });
 
-    // Atualiza o objeto Pedido salvo com os cálculos e itens persistidos
+    // Atualização e finalização do pedido
     pedidoSalvo.subtotal = subtotalGeral;
     pedidoSalvo.total = subtotalGeral;
     pedidoSalvo.quantidadeTotal = quantidadeTotal;
     pedidoSalvo.itens = itensEntity;
 
-    // 5. Salva novamente o pedido já com itens vinculados
     return this.pedidoRepository.save(pedidoSalvo);
   }
 
+  /**
+   * Busca um pedido específico com todos os seus relacionamentos
+   * 
+   * @param id - ID do pedido a ser buscado
+   * @returns Promise com o pedido e seus dados relacionados
+   * @throws NotFoundException se o pedido não for encontrado
+   */
   async findOne(id: number): Promise<Pedido> {
     const pedido = await this.pedidoRepository.findOne({
       where: { id },
@@ -98,6 +116,12 @@ export class PedidoService {
     return pedido;
   }
 
+  /**
+   * Busca todos os pedidos de um cliente específico
+   * 
+   * @param clienteId - ID do cliente
+   * @returns Promise com array de pedidos ordenados por data
+   */
   async findAllByCliente(clienteId: number): Promise<Pedido[]> {
     return this.pedidoRepository.find({
       where: { cliente: { id: clienteId } },
@@ -106,6 +130,14 @@ export class PedidoService {
     });
   }
 
+  /**
+   * Atualiza o status de um pedido
+   * 
+   * @param id - ID do pedido
+   * @param newStatus - Novo status a ser definido
+   * @returns Promise com o pedido atualizado
+   * @throws BadRequestException se o pedido estiver pago ou cancelado
+   */
   async updateStatus(id: number, newStatus: PedidoStatus): Promise<Pedido> {
     const pedido = await this.findOne(id);
 
@@ -123,4 +155,5 @@ export class PedidoService {
     pedido.status = newStatus;
     return this.pedidoRepository.save(pedido);
   }
+}
 }

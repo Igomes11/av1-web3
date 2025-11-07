@@ -1,13 +1,26 @@
 import { Navbar, Container, Nav, Button } from "react-bootstrap";
 import type { User, CurrentView } from "../types/types";
 
+/**
+ * Props do componente de barra de navegação
+ * @interface NavigationBarProps
+ */
 interface NavigationBarProps {
+  /** Dados do usuário logado */
   user: User;
+  /** Função para alterar a view atual da aplicação */
   onViewChange: (view: CurrentView) => void;
+  /** Função para realizar logout */
   onLogout: () => void;
-  cartCount: number; // Conta o total de itens no carrinho
+  /** Quantidade de itens no carrinho */
+  cartCount: number;
 }
 
+/**
+ * Componente de barra de navegação do e-commerce
+ * Fornece navegação entre as diferentes seções da aplicação
+ * e exibe informações do usuário logado
+ */
 const NavigationBar: React.FC<NavigationBarProps> = ({
   user,
   onViewChange,
