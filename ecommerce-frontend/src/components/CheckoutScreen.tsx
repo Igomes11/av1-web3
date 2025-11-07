@@ -176,10 +176,6 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
           Você precisa ter pelo menos um endereço cadastrado para finalizar o
           pedido.
         </Alert>
-        <p className="text-muted">
-          **Nota:** Use o Postman ou implemente a tela de Endereços para o
-          Cliente ID {user.id}.
-        </p>
         <Button onClick={() => onChangeView("catalog")}>
           Voltar ao Catálogo
         </Button>

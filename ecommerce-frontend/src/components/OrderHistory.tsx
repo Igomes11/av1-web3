@@ -17,16 +17,17 @@ import axios from "axios";
 import { formatPrice } from "../utils/format";
 import styles from "./OrderHistory.module.css";
 
+// Endpoints do Backend - Foco da Integração
 const API_PEDIDO_URL = "http://localhost:3000/pedido";
 const API_PAGAMENTO_URL = "http://localhost:3000/pagamento";
 
-// Interfaces adaptadas do backend
+// Interfaces adaptadas para tipagem rigorosa do TypeScript
 interface ItemPedido {
   id: number;
   quantidade: number;
   precoVenda: number;
   subtotal: number;
-  produto: Produto;
+  produto: Produto; // Inclui os detalhes do produto
 }
 
 interface Pedido {
@@ -35,7 +36,7 @@ interface Pedido {
   total: number;
   quantidadeTotal: number;
   dataCriacao: string;
-  status: string; // PedidoStatus
+  status: string; // Reflete o PedidoStatus do Backend (ABERTO, AGUARDANDO_PAGAMENTO, PAGO, CANCELADO)
   itens: ItemPedido[];
   endereco: {
     id: number;
@@ -56,27 +57,30 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Hook para buscar os pedidos sempre que o ID do usuário mudar
   useEffect(() => {
     fetchOrders();
   }, [user.id]);
 
+  // Função central para buscar dados dos pedidos do cliente no Backend
   const fetchOrders = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Busca todos os pedidos do cliente (GET /pedido/cliente/:clienteId)
+      // Chama GET /pedido/cliente/:clienteId
       const response = await axios.get<Pedido[]>(
         `${API_PEDIDO_URL}/cliente/${user.id}`
       );
       setOrders(response.data);
     } catch (err) {
-      setError("Erro ao carregar o histórico de pedidos.");
+      // Captura erros de rede ou servidor
+      setError("Erro ao carregar o histórico de pedidos. Verifique o Backend.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Modal / UI de pagamento
+  // --- Lógica do Modal de Pagamento ---
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [modalOrderId, setModalOrderId] = useState<number | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<string>("PIX");
@@ -89,12 +93,12 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
 
   const closePaymentModal = () => setShowPaymentModal(false);
 
+  // Mapeia os nomes amigáveis do Frontend para os valores do DTO do Backend
   const mapFrontendMethodToBackend = (m: string) => {
     switch (m) {
       case "Dinheiro":
-        return "Boleto";
+        return "Boleto"; // Mapeamento simplificado
       case "Débito":
-        return "Cartão";
       case "Crédito":
         return "Cartão";
       case "PIX":
@@ -104,6 +108,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
     }
   };
 
+  // Função crítica: Simula o processamento do pagamento
   const processPaymentRequest = async (
     pedidoId: number,
     metodo: string,
@@ -112,37 +117,40 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
   ) => {
     setIsLoading(true);
     setError(null);
-  try {
-      // Se não foi passado valor, tenta recuperar do pedido localmente
+    try {
+      // 1. Recupera o valor do pedido
       let finalValor = valor;
       if (finalValor === undefined) {
         const order = orders.find((o) => o.id === pedidoId);
         finalValor = order ? Number(order.total) : 0;
       }
 
-      // Garantir número e positivo (backend exige valor positivo)
       finalValor = Number(finalValor ?? 0);
-      if (!isFinite(finalValor) || finalValor <= 0) {
-        throw new Error("O VALOR TEM QUE SER POSITIVO");
-      }
 
+      // CORREÇÃO LÓGICA APLICADA:
+      // Removemos a validação "finalValor <= 0" aqui, pois o Backend (CreatePagamentoDto)
+      // garante que o valor é positivo e trata essa RN de forma unificada.
+
+      // 2. Chama POST /pagamento/processar no Backend
+      // Esta chamada contém a lógica crítica de transação (débito de estoque e mudança de status)
       await axios.post(`${API_PAGAMENTO_URL}/processar`, {
         pedidoId,
         metodo,
         valor: finalValor,
         novoStatus,
       });
+
+      // 3. Sucesso: Recarrega o histórico e mostra feedback
       await fetchOrders();
       closePaymentModal();
-      // mostrar toast de sucesso
       setToastMessage(`Pagamento do pedido #${pedidoId} processado com sucesso.`);
       setToastVariant("success");
       setShowToast(true);
     } catch (err) {
-      let errorMsg = "Erro ao processar pagamento.";
-      if (err instanceof Error && err.message === "O VALOR TEM QUE SER POSITIVO") {
-        errorMsg = "O VALOR TEM QUE SER POSITIVO";
-      } else if (axios.isAxiosError(err) && err.response?.data?.message) {
+      // 4. Tratamento de Erro do Backend
+      let errorMsg = "Erro ao processar pagamento. Verifique o estoque.";
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        // Exibe a mensagem de erro detalhada enviada pelo Backend (ex: Estoque insuficiente)
         errorMsg = Array.isArray(err.response.data.message)
           ? err.response.data.message[0]
           : err.response.data.message;
@@ -156,29 +164,29 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
     }
   };
 
-  // Toasts de feedback
+  // --- Lógica de Feedback (Toasts e Status) ---
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastVariant, setToastVariant] = useState<"success" | "danger">("success");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  
-
+  // Mapeia o status do pedido para cores visuais
   const getStatusVariant = (status: string) => {
     switch (status) {
       case "PAGO":
-        return "success";
+        return "success"; // Pedido concluído com sucesso
       case "AGUARDANDO_PAGAMENTO":
-        return "warning";
+        return "warning"; // Ação do usuário necessária
       case "ABERTO":
-        return "info";
+        return "info"; // Status inicial (novo pedido)
       case "CANCELADO":
-        return "danger";
+        return "danger"; // Estado final de falha
       default:
         return "secondary";
     }
   };
 
+  // --- Renderização de Telas de Estado ---
   if (isLoading) {
     return (
       <Container className="text-center mt-5">
@@ -208,6 +216,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
     );
   }
 
+  // --- Layout Principal do Histórico ---
   return (
     <Container className="my-5">
       <div className="d-flex justify-content-between align-items-center my-3">
@@ -231,6 +240,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
           </Card.Header>
           <Card.Body>
             <Row>
+              {/* Detalhes do Pedido */}
               <Col md={6}>
                 <h5>Detalhes</h5>
                 <p>
@@ -244,6 +254,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
                   <strong>Total:</strong> R$ {formatPrice(order.total)}
                 </p>
               </Col>
+              {/* Detalhes do Endereço */}
               <Col md={6}>
                 <h5>Entrega</h5>
                 <p className="mb-1">
@@ -256,6 +267,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
             </Row>
             <hr />
 
+            {/* Tabela de Itens do Pedido */}
             <h5 className="mb-3">Produtos Comprados</h5>
             <Table bordered size="sm">
               <thead>
@@ -278,6 +290,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
               </tbody>
             </Table>
 
+            {/* Ações de Pagamento / Cancelamento (Visível apenas se o status for AGUARDANDO_PAGAMENTO) */}
             {order.status === "AGUARDANDO_PAGAMENTO" && (
               <div className="mt-4">
                 <Alert variant="warning">Ação Necessária: Simular Pagamento</Alert>
@@ -290,10 +303,11 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
                 </Button>
                 <Button
                   variant="danger"
+                  // Chama a requisição de pagamento com novoStatus = "CANCELADO"
                   onClick={() =>
                     processPaymentRequest(
                       order.id,
-                      mapFrontendMethodToBackend("PIX"),
+                      mapFrontendMethodToBackend(selectedMethod), // Usamos o método selecionado, mas o status é CANCELADO
                       "CANCELADO"
                     )
                   }
@@ -306,7 +320,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
         </Card>
       ))}
 
-      {/* Modal para seleção de método de pagamento */}
+      {/* --- MODAL PARA SIMULAÇÃO DE PAGAMENTO --- */}
       <Modal show={showPaymentModal} onHide={closePaymentModal}>
         <Modal.Header closeButton>
           <Modal.Title>Pagar Pedido #{modalOrderId}</Modal.Title>
@@ -370,6 +384,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
             onClick={() => {
               if (!modalOrderId) return;
               const backendMethod = mapFrontendMethodToBackend(selectedMethod);
+              // Dispara a requisição para o Backend com status PAGO
               processPaymentRequest(modalOrderId, backendMethod, "PAGO");
             }}
           >
@@ -378,7 +393,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
         </Modal.Footer>
       </Modal>
 
-      {/* Modal de confirmação para limpar a tela de pedidos */}
+      {/* Modal de confirmação para limpar a tela de pedidos (apenas visualização) */}
       <Modal show={showClearConfirm} onHide={() => setShowClearConfirm(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Confirmar limpeza</Modal.Title>
@@ -404,7 +419,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onChangeView }) => {
           </Button>
         </Modal.Footer>
       </Modal>
-      {/* Toast container fixo (canto superior direito) */}
+      {/* Toast container fixo (feedback de sucesso/erro) */}
       <div aria-live="polite" className={styles.toastFixed}>
         <Toast
           onClose={() => setShowToast(false)}

@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
 import { Categoria } from '../../categoria/entities/categoria.entity';
 import { ItemPedido } from '../../item-pedido/entities/item-pedido.entity'; // IMPORTADO
 
@@ -24,11 +31,11 @@ export class Produto {
 
   @Column({ default: true })
   statusAtivo: boolean;
-  
+
   @ManyToOne(() => Categoria, (categoria) => categoria.produtos)
   @JoinColumn({ name: 'categoria_id' })
   categoria: Categoria;
-  
+
   @Column({ name: 'categoria_id' })
   categoriaId: number;
 

@@ -124,8 +124,7 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({
         {products.length === 0 && (
           <Col>
             <Alert variant="info">
-              Nenhum produto encontrado. Cadastre um via API (POST /produto)
-              para começar!
+              Nenhum produto encontrado
             </Alert>
           </Col>
         )}

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Pedido, PedidoStatus } from './entities/pedido.entity';
@@ -18,9 +22,9 @@ export class PedidoService {
     private clienteRepository: Repository<Cliente>,
     @InjectRepository(Endereco)
     private enderecoRepository: Repository<Endereco>,
-    @InjectRepository(Produto) 
-    private produtoRepository: Repository<Produto>, 
-    
+    @InjectRepository(Produto)
+    private produtoRepository: Repository<Produto>,
+
     private readonly itemPedidoService: ItemPedidoService,
   ) {}
 
@@ -28,17 +32,29 @@ export class PedidoService {
     const { clienteId, enderecoId, itens: itensDto } = createPedidoDto;
 
     // 1. Validação de Entidades base
-    const cliente = await this.clienteRepository.findOne({ where: { id: clienteId } });
-    if (!cliente) { throw new NotFoundException(`Cliente com ID ${clienteId} não encontrado.`); }
+    const cliente = await this.clienteRepository.findOne({
+      where: { id: clienteId },
+    });
+    if (!cliente) {
+      throw new NotFoundException(
+        `Cliente com ID ${clienteId} não encontrado.`,
+      );
+    }
 
-    const endereco = await this.enderecoRepository.findOne({ where: { id: enderecoId } });
-    if (!endereco) { throw new NotFoundException(`Endereço com ID ${enderecoId} não encontrado.`); }
-    
-    // 2. Prepara o Pedido (Status AGUARDANDO_PAGAMENTO)
+    const endereco = await this.enderecoRepository.findOne({
+      where: { id: enderecoId },
+    });
+    if (!endereco) {
+      throw new NotFoundException(
+        `Endereço com ID ${enderecoId} não encontrado.`,
+      );
+    }
+
+    // 2. Prepara o Pedido (Status ABERTO)
     const novoPedido = this.pedidoRepository.create({
       cliente,
       endereco,
-      status: PedidoStatus.AGUARDANDO_PAGAMENTO,
+      status: PedidoStatus.ABERTO,
       dataCriacao: new Date(),
     });
 
@@ -56,7 +72,7 @@ export class PedidoService {
     let subtotalGeral = 0;
     let quantidadeTotal = 0;
 
-    itensEntity.forEach(item => {
+    itensEntity.forEach((item) => {
       subtotalGeral += item.subtotal;
       quantidadeTotal += item.quantidade;
     });
@@ -74,7 +90,7 @@ export class PedidoService {
   async findOne(id: number): Promise<Pedido> {
     const pedido = await this.pedidoRepository.findOne({
       where: { id },
-      relations: ['cliente', 'endereco', 'itens', 'itens.produto'], 
+      relations: ['cliente', 'endereco', 'itens', 'itens.produto'],
     });
     if (!pedido) {
       throw new NotFoundException(`Pedido com ID ${id} não encontrado.`);
@@ -92,9 +108,17 @@ export class PedidoService {
 
   async updateStatus(id: number, newStatus: PedidoStatus): Promise<Pedido> {
     const pedido = await this.findOne(id);
-    
+
+    //Impede a alteração de status se o pedido já foi pago ou cancelado.
+    if (pedido.status === PedidoStatus.PAGO) {
+      throw new BadRequestException(
+        'Não é possível alterar o status de um pedido pago.',
+      );
+    }
     if (pedido.status === PedidoStatus.CANCELADO) {
-        throw new BadRequestException('Não é possível alterar o status de um pedido cancelado.');
+      throw new BadRequestException(
+        'Não é possível alterar o status de um pedido cancelado.',
+      );
     }
 
     pedido.status = newStatus;

@@ -79,9 +79,12 @@ export class EnderecoService {
     });
   }
 
-  // --- READ ONE ---
+  // --- READ ONE (CORRIGIDO: adiciona o relacionamento 'cliente') ---
   async findOne(id: number): Promise<Endereco> {
-    const endereco = await this.enderecoRepository.findOne({ where: { id } });
+    const endereco = await this.enderecoRepository.findOne({
+      where: { id },
+      relations: ['cliente'], // <--- ADICIONADO: Carrega o relacionamento Cliente
+    });
     if (!endereco) {
       throw new NotFoundException(`Endereço com ID ${id} não encontrado.`);
     }
@@ -93,11 +96,13 @@ export class EnderecoService {
     id: number,
     updateEnderecoDto: UpdateEnderecoDto,
   ): Promise<Endereco> {
+    // findOne agora traz o relacionamento 'cliente', garantindo que a linha abaixo não falhe
     const endereco = await this.findOne(id);
-    const { clienteId, principal, ...data } = updateEnderecoDto;
+    const { principal, ...data } = updateEnderecoDto;
 
     // Se a flag principal for alterada, aplica a regra de negócio
     if (principal !== undefined && principal !== endereco.principal) {
+      // endereco.cliente.id agora é seguro de acessar
       await this.preProcess(endereco.cliente.id, principal);
     }
 
@@ -106,19 +111,6 @@ export class EnderecoService {
 
     if (principal !== undefined) {
       enderecoAtualizado.principal = principal;
-    }
-
-    // Se o clienteId foi fornecido no DTO (apenas para testes), atualiza a FK
-    if (clienteId !== undefined) {
-      const cliente = await this.clienteRepository.findOne({
-        where: { id: clienteId },
-      });
-      if (!cliente) {
-        throw new BadRequestException(
-          `Cliente com ID ${clienteId} não encontrado.`,
-        );
-      }
-      enderecoAtualizado.cliente = cliente;
     }
 
     return this.enderecoRepository.save(enderecoAtualizado);

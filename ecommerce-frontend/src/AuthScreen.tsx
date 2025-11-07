@@ -11,7 +11,6 @@ import {
 } from "react-bootstrap";
 import type { User } from "./types";
 
-
 const API_URL = "http://localhost:3000/cliente";
 
 interface CreateClienteDto {
@@ -28,7 +27,7 @@ interface LoginDto {
 }
 
 interface AuthScreenProps {
-  onLogin: (user: User) => void; 
+  onLogin: (user: User) => void;
 }
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
@@ -83,7 +82,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         text: `Cadastro realizado com sucesso! Cliente ID ${response.data.id}. Navegando para o catálogo...`,
       });
 
-      // Simula o login imediato após o cadastro
+      // Se o cadastro for bem-sucedido, usa o ID real retornado para logar
       onLogin({ id: response.data.id, email: response.data.email });
 
       setCadastroData({ nome: "", email: "", senha: "", telefone: "" });
@@ -100,23 +99,43 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  /**
+   * CORRIGIDO: Esta função agora faz uma chamada POST /cliente/login
+   * para autenticar de forma básica e obter o ID REAL do cliente.
+   */
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
     setIsLoading(true);
 
-    if (loginData.email && loginData.senha) {
-      const userId = 1;
-      const simulatedUser = { id: userId, email: loginData.email };
+    try {
+      // Envia email e senha para o novo endpoint de login do Backend
+      const response = await axios.post<{ id: number; email: string }>(
+        `${API_URL}/login`,
+        loginData
+      );
+
+      // Se a chamada for bem-sucedida, o Backend retornou o ID e E-mail VÁLIDOS
+      const user: User = { id: response.data.id, email: response.data.email };
 
       setMessage({
         type: "success",
-        text: `Login ilustrativo bem-sucedido! Navegando para o Catálogo...`,
+        text: `Login bem-sucedido! Cliente ID ${user.id}. Navegando para o Catálogo...`,
       });
 
-      setTimeout(() => onLogin(simulatedUser), 500);
-    } else {
-      setMessage({ type: "danger", text: "Preencha todos os campos." });
+      // Usa o ID real retornado pelo Backend
+      setTimeout(() => onLogin(user), 500);
+    } catch (error) {
+      let errorMsg = "Credenciais inválidas. Verifique e-mail e senha.";
+
+      if (axios.isAxiosError(error) && error.response?.data?.message) {
+        // Exibe a mensagem de erro do Backend (ex: 'Cliente não encontrado', 'Credenciais inválidas')
+        errorMsg = Array.isArray(error.response.data.message)
+          ? error.response.data.message[0]
+          : error.response.data.message;
+      }
+
+      setMessage({ type: "danger", text: errorMsg });
       setTimeout(() => setIsLoading(false), 500);
     }
   };
@@ -150,9 +169,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
               {isLoginView ? (
                 // ----------------- TELA DE LOGIN -----------------
                 <Form onSubmit={handleLoginSubmit}>
-                  <h5 className="mb-4 text-center text-muted">
-                    (Autenticação Ilustrativa)
-                  </h5>
                   <Form.Group className="mb-3">
                     <Form.Label>E-mail</Form.Label>
                     <Form.Control
@@ -181,7 +197,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                       type="submit"
                       disabled={isLoading}
                     >
-                      {isLoading ? "Acessando..." : "Entrar (Ilustrativo)"}
+                      {isLoading ? "Verificando..." : "Entrar"}
                     </Button>
                   </div>
                 </Form>
