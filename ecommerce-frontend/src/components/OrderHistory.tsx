@@ -367,8 +367,7 @@ const processPaymentRequest = async (
             <h5 className="mb-3">Produtos Comprados</h5>
             <Table bordered size="sm">
               <thead>
-                <tr>
-                  <th>Produto</th>
+                <tr>                 <th>Produto</th>
                   <th>Qtde</th>
                   <th>Preço unit.</th>
                   <th>Subtotal</th>

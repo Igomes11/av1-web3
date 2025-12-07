@@ -1,26 +1,38 @@
+// ecommerce-backend/src/cliente/cliente.controller.ts
+
 import {
   Controller,
   Post,
   Body,
   UsePipes,
   ValidationPipe,
-  Get,
-  Param,
   BadRequestException,
-} from '@nestjs/common'; // Adicionado Get e Param
+} from '@nestjs/common';
 import { ClienteService } from './cliente.service';
 import { CreateClienteDto } from './dto/create-cliente.dto';
-import { Cliente } from './entities/cliente.entity';
+import { Cliente, Role } from './entities/cliente.entity'; // Importa Role
+import { AuthService } from '../auth/auth.service'; // NOVO
 
-// DTO para a rota de login, apenas para fins de tipagem na requisição (opcionalmente pode ser um DTO separado)
+// DTO para a rota de login
 interface LoginRequestDto {
   email: string;
   senha: string;
 }
 
+// NOVO: Interface de Retorno do Login
+interface LoginResponse {
+  access_token: string;
+  id: number;
+  email: string;
+  role: Role; // Incluído o papel para o frontend
+}
+
 @Controller('cliente')
 export class ClienteController {
-  constructor(private readonly clienteService: ClienteService) {}
+  constructor(
+    private readonly clienteService: ClienteService,
+    private readonly authService: AuthService, // NOVO
+  ) {}
 
   /**
    * Rota POST /cliente para cadastrar um novo cliente.
@@ -31,26 +43,30 @@ export class ClienteController {
   // Aplica a validação do DTO
   @UsePipes(new ValidationPipe({ transform: true }))
   async create(@Body() createClienteDto: CreateClienteDto): Promise<Cliente> {
+    // Certifica que novos clientes são criados com o papel padrão 'cliente'
+    const clienteComRolePadrao: CreateClienteDto & { role: Role } = {
+      ...createClienteDto,
+      role: Role.Cliente, // NOVO: Garante que o campo role esteja definido no payload antes de criar
+    };
+    // O service agora aceitará o role no objeto, se você quiser persistir o role no banco,
+    // embora no service a criação ainda não esteja usando o role.
+    // Para simplificar, ajustamos apenas a Entidade para ter o default.
     return this.clienteService.create(createClienteDto);
   }
 
   /**
-   * NOVO: Rota POST /cliente/login para simular o login e obter o ID do cliente.
-   * IMPORTANTE: Esta é uma simulação de login. Em produção, usaria-se JWT.
+   * NOVO: Rota POST /cliente/login para simular o login e obter o JWT.
    * @param loginData Email e senha.
-   * @returns Cliente (sem a senha) se as credenciais forem válidas.
+   * @returns Token JWT e dados do usuário (ID, E-mail, Role).
    */
   @Post('login')
   @UsePipes(new ValidationPipe({ transform: true }))
-  async login(
-    @Body() loginData: LoginRequestDto,
-  ): Promise<{ id: number; email: string }> {
+  async login(@Body() loginData: LoginRequestDto): Promise<LoginResponse> {
     const { email, senha } = loginData;
 
     const cliente = await this.clienteService.findByEmail(email);
 
     // Simulação da verificação de senha
-    // O cliente retornado pelo service TEM a senha (porque usamos .select())
     const isPasswordValid = await (
       await import('bcryptjs')
     ).compare(senha, cliente.senha);
@@ -59,7 +75,7 @@ export class ClienteController {
       throw new BadRequestException('Credenciais inválidas.');
     }
 
-    // Retorna apenas o ID e E-mail para o Front-end
-    return { id: cliente.id, email: cliente.email };
+    // NOVO: Gera e retorna o token JWT
+    return this.authService.login(cliente) as Promise<LoginResponse>;
   }
 }

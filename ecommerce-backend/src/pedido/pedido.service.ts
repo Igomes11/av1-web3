@@ -35,11 +35,11 @@ export class PedidoService {
 
   /**
    * Cria um novo pedido no sistema
-   * 
+   *
    * @param createPedidoDto - Dados do pedido a ser criado
    * @returns Promise com o pedido criado e seus itens
    * @throws NotFoundException se cliente ou endereço não forem encontrados
-   * 
+   *
    * Processo:
    * 1. Valida existência do cliente e endereço
    * 2. Cria o pedido com status inicial
@@ -55,14 +55,18 @@ export class PedidoService {
       where: { id: clienteId },
     });
     if (!cliente) {
-      throw new NotFoundException(`Cliente com ID ${clienteId} não encontrado.`);
+      throw new NotFoundException(
+        `Cliente com ID ${clienteId} não encontrado.`,
+      );
     }
 
     const endereco = await this.enderecoRepository.findOne({
       where: { id: enderecoId },
     });
     if (!endereco) {
-      throw new NotFoundException(`Endereço com ID ${enderecoId} não encontrado.`);
+      throw new NotFoundException(
+        `Endereço com ID ${enderecoId} não encontrado.`,
+      );
     }
 
     // Criação inicial do pedido
@@ -100,7 +104,7 @@ export class PedidoService {
 
   /**
    * Busca um pedido específico com todos os seus relacionamentos
-   * 
+   *
    * @param id - ID do pedido a ser buscado
    * @returns Promise com o pedido e seus dados relacionados
    * @throws NotFoundException se o pedido não for encontrado
@@ -118,7 +122,7 @@ export class PedidoService {
 
   /**
    * Busca todos os pedidos de um cliente específico
-   * 
+   *
    * @param clienteId - ID do cliente
    * @returns Promise com array de pedidos ordenados por data
    */
@@ -132,7 +136,7 @@ export class PedidoService {
 
   /**
    * Atualiza o status de um pedido
-   * 
+   *
    * @param id - ID do pedido
    * @param newStatus - Novo status a ser definido
    * @returns Promise com o pedido atualizado
