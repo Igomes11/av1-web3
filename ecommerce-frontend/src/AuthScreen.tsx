@@ -239,7 +239,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                 // ----------------- TELA DE CADASTRO -----------------
                 <Form onSubmit={handleCadastroSubmit}>
                   <h5 className="mb-4 text-center text-muted">
-                    (Fazendo a chamada real para o **Backend**)
                   </h5>
 
                   <Form.Group className="mb-3">
