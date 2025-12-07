@@ -1,11 +1,11 @@
 /**
  * produto.entity.ts
- * 
+ *
  * Entidade que representa um produto no sistema de e-commerce.
  * Esta entidade é central para o sistema, mantendo informações cruciais sobre
  * cada produto disponível para venda, incluindo seus detalhes, preços,
  * controle de estoque e relacionamentos.
- * 
+ *
  * @entity Produto
  * @see Categoria
  * @see ItemPedido
@@ -29,54 +29,54 @@ import { ItemPedido } from '../../item-pedido/entities/item-pedido.entity';
  */
 @Entity('produto')
 export class Produto {
-  /** 
+  /**
    * Identificador único do produto
    * Gerado automaticamente pelo banco de dados
    */
   @PrimaryGeneratedColumn()
   id: number;
 
-  /** 
+  /**
    * Nome do produto
    * Limitado a 150 caracteres para manter consistência na exibição
    */
   @Column({ length: 150 })
   nome: string;
 
-  /** 
+  /**
    * Descrição detalhada do produto
    * Campo opcional que pode conter texto longo com formatação
    */
   @Column({ type: 'text', nullable: true })
   descricao: string;
 
-  /** 
+  /**
    * Preço do produto
    * Armazenado com precisão de 10 dígitos e 2 casas decimais
    */
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   preco: number;
 
-  /** 
+  /**
    * Quantidade disponível em estoque
    * Valor padrão é 0 para produtos recém-cadastrados
    */
   @Column({ default: 0 })
   estoque: number;
 
-  /** 
+  /**
    * URL ou nome do arquivo da imagem do produto
    * Se não fornecida, usa uma imagem padrão 'placeholder.png'
    */
   @Column({ default: 'placeholder.png' })
   imagem: string;
 
-  /** 
+  /**
    * Indica se o produto está ativo para venda
    * Produtos inativos não aparecem no catálogo
    * @default true
    */
-  /** 
+  /**
    * Indica se o produto está ativo para venda
    * Produtos inativos não aparecem no catálogo
    * @default true
@@ -93,7 +93,7 @@ export class Produto {
   @JoinColumn({ name: 'categoria_id' })
   categoria: Categoria;
 
-  /** 
+  /**
    * ID da categoria do produto
    * Chave estrangeira para a tabela de categorias
    */

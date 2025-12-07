@@ -7,10 +7,10 @@ import { Categoria } from '../categoria/entities/categoria.entity';
 
 @Module({
   // Registra Produto e Categoria, pois o ProdutoService precisa dos dois repositórios
-  imports: [TypeOrmModule.forFeature([Produto, Categoria])], 
+  imports: [TypeOrmModule.forFeature([Produto, Categoria])],
   controllers: [ProdutoController],
   providers: [ProdutoService],
   // Exportamos o serviço para que PedidoModule possa usá-lo
-  exports: [ProdutoService, TypeOrmModule], 
+  exports: [ProdutoService, TypeOrmModule],
 })
 export class ProdutoModule {}

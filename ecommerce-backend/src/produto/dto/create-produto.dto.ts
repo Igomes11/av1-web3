@@ -1,4 +1,13 @@
-import { IsNotEmpty, IsString, IsNumber, IsBoolean, IsOptional, MaxLength, Min, IsInt } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  MaxLength,
+  Min,
+  IsInt,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateProdutoDto {
@@ -12,7 +21,10 @@ export class CreateProdutoDto {
   descricao?: string;
 
   @IsNotEmpty({ message: 'O preço é obrigatório.' })
-  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'O preço deve ser um número com no máximo 2 casas decimais.' })
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'O preço deve ser um número com no máximo 2 casas decimais.' },
+  )
   @Min(0.01, { message: 'O preço deve ser maior que zero.' })
   @Type(() => Number) // Garante a conversão da string para number
   preco: number;
@@ -31,7 +43,7 @@ export class CreateProdutoDto {
   @IsBoolean({ message: 'O status ativo deve ser um valor booleano.' })
   @Type(() => Boolean)
   statusAtivo?: boolean = true;
-  
+
   // Chave estrangeira para Categoria
   @IsNotEmpty({ message: 'A categoria do produto é obrigatória.' })
   @IsInt({ message: 'O ID da categoria deve ser um número inteiro.' })

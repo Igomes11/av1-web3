@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Produto } from './entities/produto.entity';
@@ -11,7 +15,7 @@ export class ProdutoService {
   constructor(
     @InjectRepository(Produto)
     private produtoRepository: Repository<Produto>,
-    
+
     @InjectRepository(Categoria) // Injeta o repositório de Categoria para validação de FK
     private categoriaRepository: Repository<Categoria>,
   ) {}
@@ -20,9 +24,13 @@ export class ProdutoService {
    * Valida se a categoria existe.
    */
   private async validateCategoria(categoriaId: number): Promise<Categoria> {
-    const categoria = await this.categoriaRepository.findOne({ where: { id: categoriaId } });
+    const categoria = await this.categoriaRepository.findOne({
+      where: { id: categoriaId },
+    });
     if (!categoria) {
-      throw new BadRequestException(`Categoria com ID ${categoriaId} não encontrada.`);
+      throw new BadRequestException(
+        `Categoria com ID ${categoriaId} não encontrada.`,
+      );
     }
     return categoria;
   }
@@ -30,17 +38,23 @@ export class ProdutoService {
   // --- CREATE ---
   async create(createProdutoDto: CreateProdutoDto): Promise<Produto> {
     await this.validateCategoria(createProdutoDto.categoriaId);
-    
+
     const novoProduto = this.produtoRepository.create(createProdutoDto);
     return this.produtoRepository.save(novoProduto);
   }
 
   // --- READ ALL (com filtros) ---
   // Filtros conforme escopo (por nome, categoria, preço min/max)
-  async findAll(nome?: string, categoriaId?: number, minPreco?: number, maxPreco?: number): Promise<Produto[]> {
-    const query = this.produtoRepository.createQueryBuilder('produto')
+  async findAll(
+    nome?: string,
+    categoriaId?: number,
+    minPreco?: number,
+    maxPreco?: number,
+  ): Promise<Produto[]> {
+    const query = this.produtoRepository
+      .createQueryBuilder('produto')
       .leftJoinAndSelect('produto.categoria', 'categoria'); // Carrega a categoria
-      
+
     if (nome) {
       query.andWhere('produto.nome LIKE :nome', { nome: `%${nome}%` });
     }
@@ -53,16 +67,16 @@ export class ProdutoService {
     if (maxPreco !== undefined) {
       query.andWhere('produto.preco <= :maxPreco', { maxPreco });
     }
-    
+
     // Filtro essencial para o catálogo: apenas produtos ativos
     query.andWhere('produto.statusAtivo = true');
 
     return query.getMany();
   }
-  
+
   // --- READ ONE ---
   async findOne(id: number): Promise<Produto> {
-    const produto = await this.produtoRepository.findOne({ 
+    const produto = await this.produtoRepository.findOne({
       where: { id },
       relations: ['categoria'], // Carrega a categoria ao buscar um único produto
     });
@@ -73,7 +87,10 @@ export class ProdutoService {
   }
 
   // --- UPDATE ---
-  async update(id: number, updateProdutoDto: UpdateProdutoDto): Promise<Produto> {
+  async update(
+    id: number,
+    updateProdutoDto: UpdateProdutoDto,
+  ): Promise<Produto> {
     const produto = await this.findOne(id);
 
     // Validação da categoria, se o ID for alterado
@@ -82,7 +99,10 @@ export class ProdutoService {
     }
 
     // Aplica as atualizações e salva
-    const produtoAtualizado = this.produtoRepository.merge(produto, updateProdutoDto);
+    const produtoAtualizado = this.produtoRepository.merge(
+      produto,
+      updateProdutoDto,
+    );
     return this.produtoRepository.save(produtoAtualizado);
   }
 
@@ -94,15 +114,17 @@ export class ProdutoService {
       throw new NotFoundException(`Produto com ID ${id} não encontrado.`);
     }
   }
-  
+
   // --- Método utilitário para validação (usado no Pedido) ---
   async findActiveProductById(id: number): Promise<Produto> {
-      const produto = await this.produtoRepository.findOne({ 
-          where: { id, statusAtivo: true }
-      });
-      if (!produto) {
-          throw new NotFoundException(`Produto com ID ${id} não encontrado ou inativo.`);
-      }
-      return produto;
+    const produto = await this.produtoRepository.findOne({
+      where: { id, statusAtivo: true },
+    });
+    if (!produto) {
+      throw new NotFoundException(
+        `Produto com ID ${id} não encontrado ou inativo.`,
+      );
+    }
+    return produto;
   }
 }
