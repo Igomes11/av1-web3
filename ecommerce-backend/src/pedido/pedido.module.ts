@@ -10,6 +10,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PedidoService } from './pedido.service';
 import { PedidoController } from './pedido.controller';
+import { PedidoCronService } from './pedido.cron.service';
+import { CarrinhoModule } from '../carrinho/carrinho.module';
 
 // Entidades relacionadas
 import { Pedido } from './entities/pedido.entity';
@@ -17,6 +19,9 @@ import { Cliente } from '../cliente/entities/cliente.entity';
 import { Endereco } from '../endereco/entities/endereco.entity';
 import { Produto } from '../produto/entities/produto.entity';
 import { ItemPedido } from '../item-pedido/entities/item-pedido.entity';
+import { Carrinho } from '../carrinho/entities/carrinho.entity';
+import { ItemCarrinho } from '../carrinho/entities/item-carrinho.entity';
+
 
 // Módulos relacionados
 import { ItemPedidoModule } from '../item-pedido/item-pedido.module';
@@ -45,7 +50,7 @@ import { ItemPedidoModule } from '../item-pedido/item-pedido.module';
     ItemPedidoModule,
   ],
   controllers: [PedidoController],  // Controller para endpoints HTTP
-  providers: [PedidoService],       // Service para lógica de negócio
+  providers: [PedidoService, PedidoCronService],       // Services para lógica de negócio e tarefas agendadas
   exports: [PedidoService],         // Disponibiliza service para outros módulos
 })
 export class PedidoModule {}

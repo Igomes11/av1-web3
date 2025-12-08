@@ -124,6 +124,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         errorMsg = Array.isArray(error.response.data.message)
           ? error.response.data.message[0]
           : error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMsg = error.message;
       }
       setMessage({ type: "danger", text: errorMsg });
     } finally {
@@ -143,10 +145,15 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
 
     try {
       // Tentativa de autenticação
-      const response = await axios.post<{ id: number; email: string }>(
+      const response = await axios.post<{ id: number; email: string; access_token?: string }>(
         `${API_URL}/login`,
         loginData
       );
+
+      // Salva o token se disponível
+      if (response.data.access_token) {
+        localStorage.setItem('token', response.data.access_token);
+      }
 
       // Prepara dados do usuário após autenticação bem-sucedida
       const user: User = { id: response.data.id, email: response.data.email };
@@ -167,10 +174,14 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         errorMsg = Array.isArray(error.response.data.message)
           ? error.response.data.message[0]
           : error.response.data.message;
+      } else if (error instanceof Error) {
+        errorMsg = error.message;
       }
 
       setMessage({ type: "danger", text: errorMsg });
       setTimeout(() => setIsLoading(false), 500);
+
+      onLogin(user);
     }
   };
 

@@ -50,6 +50,13 @@ export class PedidoService {
   async create(createPedidoDto: CreatePedidoDto): Promise<Pedido> {
     const { clienteId, enderecoId, itens: itensDto } = createPedidoDto;
 
+    // Validação de itens vazios
+    if (!itensDto || itensDto.length === 0) {
+      throw new BadRequestException(
+        'O pedido deve conter pelo menos um item.',
+      );
+    }
+
     // Validação de cliente e endereço
     const cliente = await this.clienteRepository.findOne({
       where: { id: clienteId },
@@ -118,6 +125,29 @@ export class PedidoService {
       throw new NotFoundException(`Pedido com ID ${id} não encontrado.`);
     }
     return pedido;
+  }
+
+  /**
+   * Busca todos os pedidos do sistema com paginação
+   *
+   * @param page - Número da página (padrão: 1)
+   * @param limit - Quantidade de registros por página (padrão: 10)
+   * @returns Promise com array de pedidos e informações de paginação
+   */
+  async findAll(page: number = 1, limit: number = 10): Promise<{
+    data: Pedido[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const [data, total] = await this.pedidoRepository.findAndCount({
+      relations: ['cliente', 'endereco', 'itens'],
+      order: { dataCriacao: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return { data, total, page, limit };
   }
 
   /**

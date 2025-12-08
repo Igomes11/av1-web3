@@ -80,8 +80,6 @@ export class PagamentoService {
             throw new BadRequestException(`Falha na transação: Estoque insuficiente para o produto ${produto.nome}.`);
           }
           
-          // Débito de Estoque (Regra Crítica)
-          await produtoRepo.update(produto.id, { estoque: novoEstoque });
         }
         
       } else if (novoStatusPagamento === PagamentoStatus.CANCELADO) {

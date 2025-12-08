@@ -1,71 +1,80 @@
-// ecommerce-backend/src/pedido/pedido.controller.ts
+/**
+ * pedido.controller.ts
+ * Controller responsável pelas rotas de pedidos
+ * Gerencia criação, consulta e atualização de pedidos
+ */
 
 import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   ParseIntPipe,
-  UsePipes,
-  ValidationPipe,
-  Patch,
   HttpCode,
   HttpStatus,
   BadRequestException,
-  UseGuards, // NOVO
-  Request, // NOVO
+  UseGuards,
+  Request,
+  ValidationPipe,
+  UsePipes,
 } from '@nestjs/common';
 import { PedidoService } from './pedido.service';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
-import { Pedido } from './entities/pedido.entity';
-import { PedidoStatus } from './entities/pedido.entity';
-import { AuthGuard } from '../auth/auth.guard'; // NOVO
-import { RolesGuard } from '../auth/roles.guard'; // NOVO
-import { Roles } from '../auth/roles.decorator'; // NOVO
-import { Role } from '../cliente/entities/cliente.entity'; // NOVO
+import { Pedido, PedidoStatus } from './entities/pedido.entity';
+import { AuthGuard } from '../auth/auth.guard';
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    id: number;
+    email: string;
+  };
+}
 
 @Controller('pedido')
 @UsePipes(new ValidationPipe({ transform: true }))
-@UseGuards(AuthGuard) // NOVO: Protege TODAS as rotas deste controller
+@UseGuards(AuthGuard)
 export class PedidoController {
   constructor(private readonly pedidoService: PedidoService) {}
 
+  /**
+   * Cria um novo pedido a partir do carrinho do usuário
+   * @param req - Request com informações do usuário autenticado
+   * @param dto - Dados para criar o pedido (endereçoId)
+   */
   @Post()
-  // Podemos pegar o clienteId diretamente do token (request.user.id) para maior segurança,
-  // mas vamos manter o DTO por enquanto.
-  create(@Body() createPedidoDto: CreatePedidoDto): Promise<Pedido> {
-    return this.pedidoService.create(createPedidoDto);
+  @HttpCode(HttpStatus.CREATED)
+  create(@Request() req: AuthenticatedRequest, @Body() dto: CreatePedidoDto) {
+    return this.pedidoService.create({
+      ...dto,
+      clienteId: req.user.id,
+    });
   }
 
-  // Exemplo de rota que exige papel específico (Admin) - Se aplicável
-  /*
-  @Patch(':id/status')
-  @Roles(Role.Admin) // Apenas administradores podem mudar o status
-  @UseGuards(RolesGuard)
-  @HttpCode(HttpStatus.OK)
-  updateStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('status') status: string,
-  ): Promise<Pedido> {
-    // ...
-  }
-  */
-
+  /**
+   * Busca um pedido específico por ID
+   * @param id - ID do pedido
+   */
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number): Promise<Pedido> {
     return this.pedidoService.findOne(id);
   }
 
-  // Rota para listar pedidos do cliente logado, usando o ID do token.
-  // Isso é mais seguro do que passar o clienteId no URL.
-  @Get('meus-pedidos')
-  findAllMyOrders(@Request() req: any): Promise<Pedido[]> {
-    const clienteId = req.user.id; // ID extraído do JWT pelo AuthGuard
-    return this.pedidoService.findAllByCliente(clienteId);
+  /**
+   * Busca todos os pedidos do cliente autenticado
+   * Rota mais segura que passa o ID via token JWT
+   * @param req - Request com informações do usuário autenticado
+   */
+  @Get('meus-pedidos/lista')
+  findAllMyOrders(@Request() req: AuthenticatedRequest): Promise<Pedido[]> {
+    return this.pedidoService.findAllByCliente(req.user.id);
   }
 
-  // A rota original findAllByCliente ainda pode ser mantida para uso interno, mas é menos segura para o frontend
+  /**
+   * Busca todos os pedidos de um cliente específico (por ID)
+   * @param clienteId - ID do cliente
+   */
   @Get('cliente/:clienteId')
   findAllByCliente(
     @Param('clienteId', ParseIntPipe) clienteId: number,
@@ -73,15 +82,22 @@ export class PedidoController {
     return this.pedidoService.findAllByCliente(clienteId);
   }
 
+  /**
+   * Atualiza o status de um pedido
+   * @param id - ID do pedido
+   * @param status - Novo status do pedido
+   */
   @Patch(':id/status')
   @HttpCode(HttpStatus.OK)
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body('status') status: string,
   ): Promise<Pedido> {
-    // aceita uma string com o nome do enum, por exemplo "CANCELADO"
+    // Valida se o status é válido
     if (!Object.values(PedidoStatus).includes(status as PedidoStatus)) {
-      throw new BadRequestException('Status inválido.');
+      throw new BadRequestException(
+        `Status inválido. Valores válidos: ${Object.values(PedidoStatus).join(', ')}`,
+      );
     }
     return this.pedidoService.updateStatus(id, status as PedidoStatus);
   }

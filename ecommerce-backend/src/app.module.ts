@@ -1,8 +1,8 @@
-// ecommerce-backend/src/app.module.ts
-
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+import { join } from 'path';
 import { ClienteModule } from './cliente/cliente.module';
 import { EnderecoModule } from './endereco/endereco.module';
 import { CategoriaModule } from './categoria/categoria.module';
@@ -10,7 +10,10 @@ import { ProdutoModule } from './produto/produto.module';
 import { PedidoModule } from './pedido/pedido.module';
 import { ItemPedidoModule } from './item-pedido/item-pedido.module';
 import { PagamentoModule } from './pagamento/pagamento.module';
-import { AuthModule } from './auth/auth.module'; // <-- FIX: Adicione esta linha
+import { AuthModule } from './auth/auth.module';
+import { CarrinhoModule } from './carrinho/carrinho.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -26,7 +29,6 @@ import { AuthModule } from './auth/auth.module'; // <-- FIX: Adicione esta linha
       useFactory: (configService: ConfigService) => ({
         type: configService.get<any>('DATABASE_TYPE'),
         host: configService.get<string>('DATABASE_HOST'),
-
         port: parseInt(
           configService.get<string>('DATABASE_PORT') ?? '3306',
           10,
@@ -34,11 +36,14 @@ import { AuthModule } from './auth/auth.module'; // <-- FIX: Adicione esta linha
         username: configService.get<string>('DATABASE_USERNAME'),
         password: configService.get<string>('DATABASE_PASSWORD'),
         database: configService.get<string>('DATABASE_NAME'),
-
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // Apenas para desenvolvimento
+        entities: [join(__dirname, '/**/*.entity{.ts,.js}')],
+        synchronize: process.env.NODE_ENV !== 'production',
+        logging: process.env.NODE_ENV === 'development',
       }),
     }),
+
+    // Agendamento de tarefas
+    ScheduleModule.forRoot(),
 
     // Módulos da aplicação
     ClienteModule,
@@ -48,7 +53,10 @@ import { AuthModule } from './auth/auth.module'; // <-- FIX: Adicione esta linha
     PedidoModule,
     ItemPedidoModule,
     PagamentoModule,
-    AuthModule, // A linha 48 agora encontrará o módulo
+    AuthModule,
+    CarrinhoModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

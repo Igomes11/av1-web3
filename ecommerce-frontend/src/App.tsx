@@ -9,6 +9,16 @@ import CheckoutScreen from './components/CheckoutScreen'; // CORRIGIDO: Assumind
 import OrderHistory from './components/OrderHistory';
 import ProfileScreen from './components/ProfileScreen'; // NOVO IMPORT
 import type { CurrentView, User } from './types/types'; // Importando do types/types.ts
+import axios from 'axios';
+
+// Adicione isso antes de renderizar o App
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
   
 
 function App() {
