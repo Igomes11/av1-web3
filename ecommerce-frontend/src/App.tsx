@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Container } from 'react-bootstrap';
 import AuthScreen from './AuthScreen';
 import NavigationBar from './components/NavigationBar';
+import CategoryScreen from './components/CategoryScreen';
 import ProductCatalog from './components/ProductCatalog';
 import ProductDetails from './components/ProductDetails';
 import CartScreen from './components/CartScreen';
-import CheckoutScreen from './components/CheckoutScreen'; // CORRIGIDO: Assumindo renomeado para CheckoutScreen.tsx
+import CheckoutScreen from './components/CheckoutScreen';
 import OrderHistory from './components/OrderHistory';
-import ProfileScreen from './components/ProfileScreen'; // NOVO IMPORT
-import type { CurrentView, User } from './types/types'; // Importando do types/types.ts
+import ProfileScreen from './components/ProfileScreen';
+import type { CurrentView, User } from './types/types';
+import { cartService, type Cart } from './services/cartService';
 import axios from 'axios';
 
-// Adicione isso antes de renderizar o App
+// Interceptor para adicionar token JWT em todas as requisições
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -19,57 +21,113 @@ axios.interceptors.request.use((config) => {
   }
   return config;
 });
-  
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [view, setView] = useState<CurrentView>('auth');
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string>('');
 
-  // --- Lógica do Carrinho (Simulação de Estado no Front) ---
-  const [cartItems, setCartItems] = useState<{ productId: number; quantidade: number }[]>([]);
+  // Estado do carrinho (integrado com API)
+  const [cart, setCart] = useState<Cart | null>(null);
+  const [isLoadingCart, setIsLoadingCart] = useState(false);
 
-  // Simulação de login
+  // Carrega o carrinho do backend quando o usuário faz login
+  const loadCart = async () => {
+    if (!user) return;
+    try {
+      setIsLoadingCart(true);
+      const cartData = await cartService.getCart();
+      setCart(cartData);
+    } catch (error) {
+      console.error("Erro ao carregar carrinho:", error);
+    } finally {
+      setIsLoadingCart(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadCart();
+    }
+  }, [user]);
+
+  // Handler de login
   const handleLogin = (user: User) => {
     setUser(user);
     setView('catalog');
   };
 
+  // Handler de logout
   const handleLogout = () => {
     setUser(null);
     setView('auth');
-    setCartItems([]);
+    setCart(null);
+    setSelectedCategoryId(null);
+    setSelectedCategoryName(''); 
   };
 
-  // Função para limpar o carrinho após o checkout
-  const handleClearCart = () => { 
-      setCartItems([]);
+  const handleSelectCategory = (categoryId: number, categoryName: string) => {
+    setSelectedCategoryId(categoryId);
+    setSelectedCategoryName(categoryName);
+    setView('catalog');
   };
 
-  // Lógica para adicionar/remover do carrinho
-  const updateCart = (productId: number, change: number) => {
-    setCartItems(prevItems => {
-        const existingItem = prevItems.find(item => item.productId === productId);
-        
-        if (existingItem) {
-            const newQuantity = existingItem.quantidade + change;
-            
-            if (newQuantity <= 0) {
-                return prevItems.filter(item => item.productId !== productId);
-            }
-            return prevItems.map(item =>
-                item.productId === productId ? { ...item, quantidade: newQuantity } : item
-            );
-        }
-        
-        if (change > 0) {
-            return [...prevItems, { productId, quantidade: change }];
-        }
-
-        return prevItems;
-    });
+  const handleGoToCatalog = () => {
+    setSelectedCategoryId(null);
+    setSelectedCategoryName('');
+    setView('catalog');
   };
 
+  // Adiciona item ao carrinho via API
+  const handleAddToCart = async (productId: number, quantidade: number) => {
+    try {
+      const updatedCart = await cartService.addItem(productId, quantidade);
+      setCart(updatedCart);
+    } catch (error) {
+      console.error("Erro ao adicionar item ao carrinho:", error);
+      alert("Erro ao adicionar item ao carrinho. Por favor, tente novamente.");
+    }
+  };
+
+  // Atualiza quantidade de um item no carrinho
+  const handleUpdateCartItem = async (itemId: number, quantidade: number) => {
+    try {
+      if (quantidade <= 0) {
+        await cartService.removeItem(itemId);
+      } else {
+        await cartService.updateItem(itemId, quantidade);
+      }
+      await loadCart();
+    } catch (error) {
+      console.error("Erro ao atualizar item do carrinho:", error);
+      alert("Erro ao atualizar item do carrinho.");
+    }
+  };
+
+  // Remove item do carrinho
+  const handleRemoveCartItem = async (itemId: number) => {
+    try {
+      await cartService.removeItem(itemId);
+      await loadCart();
+    } catch (error) {
+      console.error('Erro ao remover item:', error);
+    }
+  };
+
+  // Limpa o carrinho (usado após finalizar pedido)
+  const handleClearCart = async () => {
+    try {
+      await cartService.clearCart();
+      setCart(null);
+    } catch (error) {
+      console.error('Erro ao limpar carrinho:', error);
+    }
+  };
+
+  // Calcula total de itens no carrinho para exibir no badge
+  const cartItemCount = cart?.itens.reduce((acc, item) => acc + item.quantidade, 0) ?? 0;
 
   const renderView = () => {
     if (!user || view === 'auth') {
@@ -77,13 +135,22 @@ function App() {
     }
 
     switch (view) {
+      case 'categories':
+        return <CategoryScreen onSelectCategory={handleSelectCategory} onChangeView={setView} />;
+
       case 'catalog':
         return (
           <ProductCatalog 
-            onSelectProduct={(id) => { setSelectedProductId(id); setView('details'); }} 
-            cartItems={cartItems}
+            onSelectProduct={(id) => { 
+              setSelectedProductId(id); 
+              setView('details'); 
+            }} 
+            cart={cart}
+            categoryId={selectedCategoryId ?? undefined}
+            categoryName={selectedCategoryName || undefined}
           />
         );
+
       case 'details':
         if (selectedProductId === null) {
           setView('catalog');
@@ -93,49 +160,64 @@ function App() {
           <ProductDetails 
             productId={selectedProductId} 
             onChangeView={setView} 
-            onUpdateCart={updateCart}
-            currentCartItem={cartItems.find(item => item.productId === selectedProductId)}
+            cart={cart}
+            onAddToCart={handleAddToCart}
           />
         );
+
       case 'cart':
         return (
           <CartScreen 
-            cartItems={cartItems} 
-            onUpdateCart={updateCart} 
+            cart={cart}
+            isLoading={isLoadingCart}
+            onUpdateItem={handleUpdateCartItem} 
+            onRemoveItem={handleRemoveCartItem}
             onChangeView={setView}
           />
         );
+
       case 'checkout':
         return ( 
-            <CheckoutScreen 
-                user={user as User}
-                cartItems={cartItems}
-                onClearCart={handleClearCart}
-                onChangeView={setView}
-            />
+          <CheckoutScreen 
+            user={user}
+            cart={cart}
+            onClearCart={handleClearCart}
+            onChangeView={setView}
+          />
         );
+
       case 'history':
         return <OrderHistory user={user} onChangeView={setView} />; 
       
-      case 'profile': // NOVA ROTA: Perfil e Endereços
+      case 'profile':
         return <ProfileScreen user={user} onChangeView={setView} />; 
 
       default:
-        return <ProductCatalog 
-            onSelectProduct={(id) => { setSelectedProductId(id); setView('details'); }} 
-            cartItems={cartItems}
-          />;
+        return (
+          <ProductCatalog 
+            onSelectProduct={(id) => { 
+              setSelectedProductId(id); 
+              setView('details'); 
+            }} 
+            cart={cart}
+            categoryId={selectedCategoryId ?? undefined}
+            categoryName={selectedCategoryName || undefined}
+          />
+        );
     }
   };
 
   return (
     <>
-      {user && <NavigationBar 
-        user={user} 
-        onViewChange={setView} 
-        onLogout={handleLogout} 
-        cartCount={cartItems.reduce((acc, item) => acc + item.quantidade, 0)} 
-      />}
+      {user && (
+        <NavigationBar 
+          user={user} 
+          onViewChange={setView} 
+          onGoToCatalog={handleGoToCatalog}
+          onLogout={handleLogout} 
+          cartCount={cartItemCount}
+        />
+      )}
       
       <Container className="mt-4">
         {renderView()}

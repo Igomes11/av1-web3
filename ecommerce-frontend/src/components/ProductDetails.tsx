@@ -16,6 +16,7 @@ import axios from 'axios';
 import { formatPrice } from '../utils/format';
 import { Container, Card, Button, Alert, Spinner, Row, Col, Form } from 'react-bootstrap';
 import type { Produto, CurrentView } from '../types';
+import type { Cart } from '../services/cartService';
 
 /** URL base da API para operações com produtos */
 const API_URL = 'http://localhost:3000/produto';
@@ -29,10 +30,10 @@ interface ProductDetailsProps {
     productId: number;
     /** Callback para navegação entre views */
     onChangeView: (view: CurrentView) => void;
-    /** Callback para atualização do carrinho */
-    onUpdateCart: (productId: number, change: number) => void;
-    /** Item atual no carrinho, se existir */
-    currentCartItem: { productId: number; quantidade: number } | undefined;
+    /** Carrinho completo do usuário */
+    cart: Cart | null;
+    /** Callback para adicionar item ao carrinho */
+    onAddToCart: (productId: number, quantidade: number) => Promise<void>;
 }
 
 /**
@@ -42,17 +43,19 @@ interface ProductDetailsProps {
 const ProductDetails: React.FC<ProductDetailsProps> = ({ 
     productId, 
     onChangeView, 
-    onUpdateCart, 
-    currentCartItem 
+    cart,
+    onAddToCart,
 }) => {
     // Estados para gerenciamento de dados e UI
-    const [product, setProduct] = useState<Produto | null>(null);        // Dados do produto
-    const [isLoading, setIsLoading] = useState(true);                   // Indicador de carregamento
-    const [error, setError] = useState<string | null>(null);            // Mensagens de erro
-    const [quantity, setQuantity] = useState(1);                        // Quantidade selecionada
+    const [product, setProduct] = useState<Produto | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [quantity, setQuantity] = useState(1);
     
     // Quantidade atual no carrinho para controle de estoque
-    const currentQuantity = currentCartItem?.quantidade || 0;
+    const currentQuantity = cart?.itens.find(
+        item => item.produto.id === productId
+    )?.quantidade || 0;
 
     /**
      * Carrega os detalhes do produto selecionado
@@ -61,7 +64,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
         try {
             const response = await axios.get<Produto>(`${API_URL}/${productId}`);
             setProduct(response.data);
-            setQuantity(1); // Reset para quantidade inicial
+            setQuantity(1);
         } catch (error) {
             console.error('Erro ao carregar produto:', error);
             setError('Erro ao carregar detalhes do produto.');
@@ -79,31 +82,30 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
      * Adiciona produtos ao carrinho
      * Valida quantidade contra estoque disponível
      */
-    const handleAddToCart = () => {
+    const handleAddToCart = async () => {
         if (!product) return;
 
-        if (quantity > 0 && quantity <= product.estoque) {
-            onUpdateCart(product.id, quantity);
-            alert(`Adicionado ${quantity}x ${product.nome} ao carrinho!`);
-            setQuantity(1); // Reset após adição
-        } else if (quantity > product.estoque) {
-            alert(`Erro: A quantidade excede o estoque disponível de ${product.estoque}.`);
+        const availableStock = product.estoque - currentQuantity;
+
+        if (quantity > 0 && quantity <= availableStock) {
+            try {
+                await onAddToCart(product.id, quantity);
+                alert(`Adicionado ${quantity}x ${product.nome} ao carrinho!`);
+                setQuantity(1);
+            } catch (error) {
+                alert('Erro ao adicionar ao carrinho. Tente novamente.');
+            }
+        } else if (quantity > availableStock) {
+            alert(`Erro: Apenas ${availableStock} unidades disponíveis (você já tem ${currentQuantity} no carrinho).`);
         }
     };
-    
-    /**
-     * Remove todos os itens do produto do carrinho
-     */
-    const handleRemoveFromCart = () => {
-        if (!product || currentQuantity === 0) return;
-        
-        onUpdateCart(product.id, -currentQuantity);
-        alert(`Removido ${product.nome} totalmente do carrinho.`);
-    }
 
     if (isLoading) {
         return (
-            <Container className="text-center mt-5"><Spinner animation="border" variant="primary" /><p className="mt-2">Carregando detalhes...</p></Container>
+            <Container className="text-center mt-5">
+                <Spinner animation="border" variant="primary" />
+                <p className="mt-2">Carregando detalhes...</p>
+            </Container>
         );
     }
 
@@ -115,6 +117,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             </Container>
         );
     }
+
+    const availableStock = product.estoque - currentQuantity;
 
     /**
      * Interface principal de detalhes do produto
@@ -188,18 +192,18 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                                 <Form.Control
                                     type="number"
                                     min="1"
-                                    max={product.estoque - currentQuantity}
+                                    max={availableStock}
                                     value={quantity}
                                     onChange={(e) => setQuantity(
-                                        Math.max(1, parseInt(e.target.value) || 1)
+                                        Math.max(1, Math.min(availableStock, parseInt(e.target.value) || 1))
                                     )}
                                     style={{ width: '80px' }}
                                     className="me-3"
-                                    disabled={product.estoque === 0 || product.estoque === currentQuantity}
+                                    disabled={availableStock === 0}
                                     title={
-                                        product.estoque === 0 
-                                            ? "Produto sem estoque" 
-                                            : `Máximo: ${product.estoque - currentQuantity}`
+                                        availableStock === 0 
+                                            ? "Produto sem estoque disponível" 
+                                            : `Máximo: ${availableStock}`
                                     }
                                 />
                                 
@@ -207,36 +211,23 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                                 <Button 
                                     variant="primary" 
                                     onClick={handleAddToCart}
-                                    disabled={
-                                        product.estoque === 0 || 
-                                        quantity > (product.estoque - currentQuantity)
-                                    }
-                                    className="me-2"
+                                    disabled={availableStock === 0}
                                     title={
-                                        product.estoque === 0 
-                                            ? "Produto sem estoque" 
+                                        availableStock === 0 
+                                            ? "Produto sem estoque disponível" 
                                             : "Adicionar a quantidade selecionada ao carrinho"
                                     }
                                 >
                                     Adicionar ao Carrinho
                                 </Button>
-                                
-                                {/* Botão de remover do carrinho (se houver) */}
-                                {currentQuantity > 0 && (
-                                    <Button 
-                                        variant="outline-danger" 
-                                        onClick={handleRemoveFromCart}
-                                        title="Remover todos os itens deste produto do carrinho"
-                                    >
-                                        Remover Tudo
-                                    </Button>
-                                )}
                             </div>
                             
                             {/* Alerta de produto esgotado */}
-                            {product.estoque === 0 && (
+                            {availableStock === 0 && (
                                 <Alert variant="danger" className="mt-3">
-                                    Produto Esgotado!
+                                    {currentQuantity > 0 
+                                        ? "Você já tem todo o estoque disponível no carrinho!" 
+                                        : "Produto Esgotado!"}
                                 </Alert>
                             )}
                         </Col>

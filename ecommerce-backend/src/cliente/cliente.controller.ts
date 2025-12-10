@@ -1,5 +1,3 @@
-// ecommerce-backend/src/cliente/cliente.controller.ts
-
 import {
   Controller,
   Post,
@@ -8,65 +6,64 @@ import {
   ValidationPipe,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ClienteService } from './cliente.service';
 import { CreateClienteDto } from './dto/create-cliente.dto';
-import { Cliente, Role } from './entities/cliente.entity'; // Importa Role
-import { AuthService } from '../auth/auth.service'; // NOVO
+import { LoginDto } from './dto/login.dto';  // ✅ NOVO IMPORT
+import { Cliente, Role } from './entities/cliente.entity';
+import { AuthService } from '../auth/auth.service';
 
-// DTO para a rota de login
-interface LoginRequestDto {
-  email: string;
-  senha: string;
-}
-
-// NOVO: Interface de Retorno do Login
+// Interface de Retorno do Login
 interface LoginResponse {
   access_token: string;
   id: number;
   email: string;
-  role: Role; // Incluído o papel para o frontend
+  role: Role;
 }
 
+@ApiTags('cliente')
 @Controller('cliente')
 export class ClienteController {
   constructor(
     private readonly clienteService: ClienteService,
-    private readonly authService: AuthService, // NOVO
+    private readonly authService: AuthService,
   ) {}
 
-  /**
-   * Rota POST /cliente para cadastrar um novo cliente.
-   * @param createClienteDto Dados de criação do cliente
-   * @returns
-   */
   @Post()
-  // Aplica a validação do DTO
+  @ApiOperation({ summary: 'Cadastrar novo cliente' })
+  @ApiResponse({ status: 201, description: 'Cliente criado com sucesso', type: Cliente })
+  @ApiResponse({ status: 400, description: 'Email já cadastrado ou dados inválidos' })
   @UsePipes(new ValidationPipe({ transform: true }))
   async create(@Body() createClienteDto: CreateClienteDto): Promise<Cliente> {
-    // Certifica que novos clientes são criados com o papel padrão 'cliente'
     const clienteComRolePadrao: CreateClienteDto & { role: Role } = {
       ...createClienteDto,
-      role: Role.Cliente, // NOVO: Garante que o campo role esteja definido no payload antes de criar
+      role: Role.Cliente,
     };
-    // O service agora aceitará o role no objeto, se você quiser persistir o role no banco,
-    // embora no service a criação ainda não esteja usando o role.
-    // Para simplificar, ajustamos apenas a Entidade para ter o default.
     return this.clienteService.create(createClienteDto);
   }
 
-  /**
-   * NOVO: Rota POST /cliente/login para simular o login e obter o JWT.
-   * @param loginData Email e senha.
-   * @returns Token JWT e dados do usuário (ID, E-mail, Role).
-   */
   @Post('login')
+  @ApiOperation({ summary: 'Fazer login e obter token JWT' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Login realizado com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        access_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+        id: { type: 'number', example: 1 },
+        email: { type: 'string', example: 'usuario@email.com' },
+        role: { type: 'string', example: 'cliente' },
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Credenciais inválidas' })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async login(@Body() loginData: LoginRequestDto): Promise<LoginResponse> {
+  async login(@Body() loginData: LoginDto): Promise<LoginResponse> {  // ✅ MUDOU AQUI
     const { email, senha } = loginData;
 
     const cliente = await this.clienteService.findByEmail(email);
 
-    // Simulação da verificação de senha
     const isPasswordValid = await (
       await import('bcryptjs')
     ).compare(senha, cliente.senha);
@@ -75,7 +72,6 @@ export class ClienteController {
       throw new BadRequestException('Credenciais inválidas.');
     }
 
-    // NOVO: Gera e retorna o token JWT
     return this.authService.login(cliente) as Promise<LoginResponse>;
   }
 }

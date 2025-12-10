@@ -23,6 +23,7 @@ import {
   Spinner,
 } from "react-bootstrap";
 import type { Produto } from "../types";
+import type { Cart } from "../services/cartService";
 
 /** URL base da API para operações com produtos */
 const API_URL = "http://localhost:3000/produto";
@@ -34,8 +35,10 @@ const API_URL = "http://localhost:3000/produto";
 interface ProductCatalogProps {
   /** Callback para navegação aos detalhes do produto */
   onSelectProduct: (id: number) => void;
-  /** Lista de itens no carrinho para referência */
-  cartItems: { productId: number; quantidade: number }[];
+  /** Carrinho completo do usuário */
+  cart: Cart | null;
+  categoryId?: number;
+  categoryName?: string;
 }
 
 /**
@@ -45,19 +48,26 @@ interface ProductCatalogProps {
  */
 const ProductCatalog: React.FC<ProductCatalogProps> = ({
   onSelectProduct,
-  cartItems,
+  cart,
+  categoryId,
+  categoryName,
 }) => {
   // Estados para gerenciamento de dados e UI
-  const [products, setProducts] = useState<Produto[]>([]);    // Lista de produtos
-  const [isLoading, setIsLoading] = useState(true);          // Indicador de carregamento
-  const [error, setError] = useState<string | null>(null);   // Mensagens de erro
+  const [products, setProducts] = useState<Produto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   /**
    * Carrega a lista de produtos do backend
    */
   const fetchProducts = async () => {
     try {
-      const response = await axios.get<Produto[]>(API_URL);
+      // MODIFICAR: Adiciona filtro por categoria se existir
+      let url = API_URL;
+      if (categoryId) {
+        url = `${API_URL}?categoriaId=${categoryId}`;
+      }
+      const response = await axios.get<Produto[]>(url);
       setProducts(response.data);
     } catch (error) {
       console.error('Erro ao carregar produtos:', error);
@@ -80,7 +90,8 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({
    * @returns Quantidade do produto no carrinho
    */
   const getItemCount = (productId: number) => {
-    const item = cartItems.find((item) => item.productId === productId);
+    if (!cart) return 0;
+    const item = cart.itens.find((item) => item.produto.id === productId);
     return item ? item.quantidade : 0;
   };
 
@@ -107,7 +118,16 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({
    */
   return (
     <Container className="my-4">
-      <h2>Catálogo de Produtos</h2>
+      {categoryName ? (
+        <>
+          <h2> {categoryName}</h2>
+          <p className="text-muted">
+            Produtos da categoria {categoryName}
+          </p>
+        </>
+      ) : (
+        <h2>Catálogo de Produtos</h2>
+      )}
       <Row>
         {products.map((product) => {
           const count = getItemCount(product.id);

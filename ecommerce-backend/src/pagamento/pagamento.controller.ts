@@ -1,5 +1,3 @@
-// ecommerce-backend/src/pagamento/pagamento.controller.ts
-
 import {
   Controller,
   Post,
@@ -9,7 +7,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-// CORREÇÃO: Imports de validação devem vir de 'class-validator'
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { IsIn, IsString } from 'class-validator';
 
 import { PagamentoService } from './pagamento.service';
@@ -25,15 +23,16 @@ class SimulatePaymentDto extends CreatePagamentoDto {
   novoStatus: PagamentoStatus;
 }
 
+@ApiTags('pagamento')
 @Controller('pagamento')
 export class PagamentoController {
   constructor(private readonly pagamentoService: PagamentoService) {}
 
-  /**
-   * Rota POST /pagamento/processar
-   * Simula o processamento de um pagamento (e o débito de estoque em caso de sucesso).
-   */
   @Post('processar')
+  @ApiOperation({ summary: 'Processar pagamento de um pedido' })
+  @ApiResponse({ status: 200, description: 'Pagamento processado com sucesso', type: Pagamento })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  @ApiResponse({ status: 404, description: 'Pedido não encontrado' })
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ transform: true }))
   async processarPagamento(
@@ -41,7 +40,6 @@ export class PagamentoController {
   ): Promise<Pagamento> {
     const { novoStatus, ...pagamentoDto } = simulatePaymentDto;
 
-    // Chama a lógica de transação crítica (pagamento e débito de estoque)
     return this.pagamentoService.processarPagamento(pagamentoDto, novoStatus);
   }
 }

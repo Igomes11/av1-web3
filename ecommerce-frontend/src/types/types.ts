@@ -2,6 +2,7 @@
 export type CurrentView =
   | "auth"
   | "catalog"
+  | "categories"
   | "details"
   | "cart"
   | "checkout"

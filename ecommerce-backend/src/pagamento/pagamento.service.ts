@@ -80,6 +80,8 @@ export class PagamentoService {
             throw new BadRequestException(`Falha na transação: Estoque insuficiente para o produto ${produto.nome}.`);
           }
           
+          produto.estoque = novoEstoque;
+          await produtoRepo.save(produto);
         }
         
       } else if (novoStatusPagamento === PagamentoStatus.CANCELADO) {

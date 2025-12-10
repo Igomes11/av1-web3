@@ -10,12 +10,13 @@ interface NavigationBarProps {
   user: User;
   /** Função para alterar a view atual da aplicação */
   onViewChange: (view: CurrentView) => void;
+  /** Função para voltar ao catálogo */
+  onGoToCatalog: () => void;
   /** Função para realizar logout */
   onLogout: () => void;
   /** Quantidade de itens no carrinho */
   cartCount: number;
 }
-
 /**
  * Componente de barra de navegação do e-commerce
  * Fornece navegação entre as diferentes seções da aplicação
@@ -24,19 +25,23 @@ interface NavigationBarProps {
 const NavigationBar: React.FC<NavigationBarProps> = ({
   user,
   onViewChange,
+  onGoToCatalog,
   onLogout,
   cartCount,
 }) => {
   return (
     <Navbar bg="dark" variant="dark" expand="lg" sticky="top">
       <Container>
-        <Navbar.Brand href="#" onClick={() => onViewChange("catalog")}>
+        <Navbar.Brand href="#" onClick={onGoToCatalog}>
           E-commerce AV1
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
-            <Nav.Link onClick={() => onViewChange("catalog")}>
+            <Nav.Link onClick={() => onViewChange("categories")}>
+              Categorias
+            </Nav.Link>
+            <Nav.Link onClick={onGoToCatalog}>
               Catálogo
             </Nav.Link>
             <Nav.Link onClick={() => onViewChange("history")}>

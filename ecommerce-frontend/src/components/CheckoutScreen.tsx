@@ -11,22 +11,11 @@ import {
   Col,
 } from "react-bootstrap";
 import { formatPrice } from "../utils/format";
-import type { CurrentView, User, Endereco, Produto } from "../types/types";
+import type { CurrentView, User, Endereco } from "../types/types";
+import type { Cart } from "../services/cartService";
 
 const API_PEDIDO_URL = "http://localhost:3000/pedido";
 const API_ENDERECO_URL = "http://localhost:3000/endereco";
-const API_PRODUTO_URL = "http://localhost:3000/produto";
-
-/**
- * Interface que representa um item no carrinho
- * @interface CartItem
- */
-interface CartItem {
-  /** ID do produto no carrinho */
-  productId: number;
-  /** Quantidade do produto no carrinho */
-  quantidade: number;
-}
 
 /**
  * DTO para criação de item do pedido
@@ -59,43 +48,38 @@ interface CreatePedidoDto {
 interface CheckoutScreenProps {
   /** Dados do usuário logado */
   user: User;
-  /** Lista de itens no carrinho */
-  cartItems: CartItem[];
+  /** Carrinho completo do usuário */
+  cart: Cart | null;
   /** Função para limpar o carrinho após finalização do pedido */
-  onClearCart: () => void;
+  onClearCart: () => Promise<void>;
   /** Função para mudar a view atual da aplicação */
   onChangeView: (view: CurrentView) => void;
 }
 
 const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   user,
-  cartItems,
+  cart,
   onClearCart,
   onChangeView,
 }) => {
   const [addresses, setAddresses] = useState<Endereco[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<
-    number | undefined
-  >(undefined);
-  const [productsDetails, setProductsDetails] = useState<Produto[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   /**
-   * Efeito para carregar dados necessários ao checkout:
-   * - Endereços do cliente
-   * - Detalhes dos produtos no carrinho
+   * Efeito para carregar endereços do cliente
    */
   useEffect(() => {
-    // Criamos uma referência ao carrinho atual para comparação
-    const currentCartItems = cartItems;
-    
     const fetchData = async () => {
-      if (currentCartItems.length === 0) return;
+      if (!cart || cart.itens.length === 0) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
-        // 1. Busca Endereços do Cliente
+        // Busca Endereços do Cliente
         const addressResponse = await axios.get<Endereco[]>(
           `${API_ENDERECO_URL}/cliente/${user.id}`
         );
@@ -108,57 +92,42 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
         } else if (addressResponse.data.length > 0) {
           setSelectedAddressId(addressResponse.data[0].id);
         }
-
-        // 2. Busca detalhes dos produtos no carrinho
-        const productIds = currentCartItems.map((item) => item.productId);
-        const productsPromises = productIds.map((id) =>
-          axios.get<Produto>(`${API_PRODUTO_URL}/${id}`)
-        );
-        const results = await Promise.all(productsPromises);
-        setProductsDetails(results.map((res) => res.data));
       } catch (error) {
-        setError(
-          "Erro ao carregar dados de checkout. Verifique se há endereços e produtos ativos no backend."
-        );
+        setError("Erro ao carregar dados de checkout.");
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchData();
-  }, [user.id, cartItems]);
+  }, [user.id, cart]);
 
   /**
-   * Calcula o valor total do pedido baseado nos itens do carrinho
-   * e seus respectivos preços
+   * Calcula o valor total do pedido
    * @returns {number} Valor total do pedido
    */
   const calculateTotal = () => {
-    return cartItems.reduce((total, cartItem) => {
-      const product = productsDetails.find((p) => p.id === cartItem.productId);
-      return total + (product ? product.preco * cartItem.quantidade : 0);
+    if (!cart) return 0;
+    return cart.itens.reduce((total, item) => {
+      return total + (item.produto.preco * item.quantidade);
     }, 0);
   };
 
   /**
    * Processa a finalização do pedido
-   * Valida endereço, cria o pedido no backend e
-   * atualiza o estado da aplicação
    */
   const handlePlaceOrder = async () => {
-    // Validação de endereço selecionado
-    if (!selectedAddressId) {
+    if (!selectedAddressId || !cart) {
       setError("Por favor, selecione um endereço de entrega.");
       return;
     }
 
-    // Atualiza estado para processamento
     setIsPlacingOrder(true);
     setError(null);
 
     // Prepara dados do pedido
-    const itensPedidoDto: ItemPedidoDto[] = cartItems.map((item) => ({
-      produtoId: item.productId,
+    const itensPedidoDto: ItemPedidoDto[] = cart.itens.map((item) => ({
+      produtoId: item.produto.id,
       quantidade: item.quantidade,
     }));
 
@@ -173,7 +142,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
       const response = await axios.post(API_PEDIDO_URL, orderData);
 
       // Limpa carrinho e exibe feedback
-      onClearCart();
+      await onClearCart();
       alert(
         `Pedido #${response.data.id} criado com sucesso! Status: AGUARDANDO_PAGAMENTO.`
       );
@@ -205,7 +174,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
 
   const cartTotal = calculateTotal();
 
-  if (cartItems.length === 0) {
+  if (!cart || cart.itens.length === 0) {
     return (
       <Container className="mt-5">
         <Alert variant="warning">
@@ -225,8 +194,8 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
           Você precisa ter pelo menos um endereço cadastrado para finalizar o
           pedido.
         </Alert>
-        <Button onClick={() => onChangeView("catalog")}>
-          Voltar ao Catálogo
+        <Button onClick={() => onChangeView("profile")}>
+          Cadastrar Endereço
         </Button>
       </Container>
     );
@@ -269,26 +238,19 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
             <Card.Header>Itens do Pedido</Card.Header>
             <Card.Body>
               <ul className="list-unstyled">
-                {cartItems.map((item) => {
-                  const product = productsDetails.find(
-                    (p) => p.id === item.productId
-                  );
-                  if (!product) return null;
-                  return (
-                    <li
-                      key={item.productId}
-                      className="d-flex justify-content-between"
-                    >
-                      <span>
-                        {product.nome} x {item.quantidade}
-                      </span>
-                      <span className="fw-bold">
-                        R${" "}
-                        {formatPrice(Number(product.preco) * item.quantidade)}
-                      </span>
-                    </li>
-                  );
-                })}
+                {cart.itens.map((item) => (
+                  <li
+                    key={item.id}
+                    className="d-flex justify-content-between mb-2"
+                  >
+                    <span>
+                      {item.produto.nome} x {item.quantidade}
+                    </span>
+                    <span className="fw-bold">
+                      R$ {formatPrice(item.produto.preco * item.quantidade)}
+                    </span>
+                  </li>
+                ))}
               </ul>
             </Card.Body>
           </Card>
