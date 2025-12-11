@@ -26,11 +26,16 @@ export class ItemPedidoService {
       throw new BadRequestException(`Produto com ID ${produtoId} não encontrado ou inativo.`);
     }
 
-    if (produto.estoque < quantidade) {
+    const estoqueDisponível = produto.estoque - produto.reserved;
+
+    if (estoqueDisponível < quantidade) {
       throw new BadRequestException(
-        `Estoque insuficiente para o produto ${produto.nome}. Disponível: ${produto.estoque}, Solicitado: ${quantidade}.`,
+        `Estoque insuficiente. Disponível: ${estoqueDisponível}.`
       );
     }
+
+    produto.reserved += quantidade;
+    await this.produtoRepository.save(produto);
     
     const precoVenda = produto.preco;
     const subtotal = precoVenda * quantidade;

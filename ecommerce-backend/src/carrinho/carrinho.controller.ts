@@ -1,15 +1,5 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Body,
-  Param,
-  ParseIntPipe,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+  Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { CarrinhoService } from './carrinho.service';
 import { AddItemDto } from './dto/add-item.dto';

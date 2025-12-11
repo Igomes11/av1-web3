@@ -138,10 +138,12 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({
                 {/* Imagem placeholder do produto */}
                 <Card.Img
                   variant="top"
-                  src={`https://placehold.co/400x300?text=${product.nome.substring(
-                    0,
-                    15
-                  )}`}
+                  // LÓGICA NOVA AQUI:
+                  src={
+                    product.imagem && product.imagem.startsWith('http')
+                      ? product.imagem
+                      : `https://placehold.co/400x300?text=${product.nome.substring(0, 15)}`
+                  }
                   style={{ height: "200px", objectFit: "cover" }}
                   alt={`Imagem do produto ${product.nome}`}
                 />

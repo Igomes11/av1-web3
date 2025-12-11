@@ -73,14 +73,17 @@ export class PagamentoService {
         
         for (const item of pedido.itens) {
           const produto = item.produto; // ItemPedido tem relação direta com Produto
-          const novoEstoque = produto.estoque - item.quantidade;
+          
+          
+          // Validação de segurança antes do débito
+          produto.reserved -= item.quantidade;
+          produto.estoque -= item.quantidade;
           
           // Validação de segurança final antes do débito (pode ter mudado)
-          if (novoEstoque < 0) {
+          if (produto.estoque < 0) {
             throw new BadRequestException(`Falha na transação: Estoque insuficiente para o produto ${produto.nome}.`);
           }
           
-          produto.estoque = novoEstoque;
           await produtoRepo.save(produto);
         }
         

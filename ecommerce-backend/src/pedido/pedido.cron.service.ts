@@ -61,10 +61,15 @@ export class PedidoCronService {
         // 1. Devolve os itens para o estoque
         for (const item of pedido.itens) {
           const produto = item.produto;
-          produto.estoque += item.quantidade;
+
+          produto.reserved -= item.quantidade;
+
+          if(produto.reserved < 0) produto.reserved = 0;
+
+
           await this.produtoRepository.save(produto);
           console.log(
-            `Estoque devolvido: Produto #${produto.id} - ${item.quantidade} unidades`,
+            `Estoque devolvido: Produto #${produto.id} - ${item.quantidade} unidades`, 
           );
         }
 

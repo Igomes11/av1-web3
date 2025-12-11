@@ -20,7 +20,7 @@ export async function seedProdutos(dataSource: DataSource) {
     return;
   }
 
-  // Produtos por categoria
+  // Produtos por categoria com URLs de Imagem
   const produtosData = [
     // Eletrônicos
     {
@@ -28,6 +28,7 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Smartphone top de linha com câmera de 200MP',
       preco: 3999.99,
       estoque: 50,
+      imagem: 'https://imgur.com/P1ersdk.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Eletrônicos')?.id,
     },
     {
@@ -35,6 +36,7 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Notebook Intel Core i7, 16GB RAM, SSD 512GB',
       preco: 4500.00,
       estoque: 30,
+      imagem: 'https://imgur.com/tJgOkMU.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Eletrônicos')?.id,
     },
     {
@@ -42,6 +44,7 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Fone de ouvido sem fio com cancelamento de ruído',
       preco: 350.00,
       estoque: 100,
+      imagem: 'https://imgur.com/WkDrJUB.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Eletrônicos')?.id,
     },
     
@@ -51,6 +54,7 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Camiseta 100% algodão, várias cores disponíveis',
       preco: 49.90,
       estoque: 200,
+      imagem: 'https://imgur.com/APFuzMb.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Roupas')?.id,
     },
     {
@@ -58,13 +62,15 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Calça jeans masculina corte slim fit',
       preco: 159.90,
       estoque: 80,
+      imagem: 'https://imgur.com/zxhKrCP.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Roupas')?.id,
     },
     {
-      nome: 'Tênis Nike Air',
+      nome: 'Tênis Nike Air Force',
       descricao: 'Tênis esportivo confortável para corrida',
       preco: 599.90,
       estoque: 45,
+      imagem: 'https://imgur.com/6aMqVtY.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Roupas')?.id,
     },
     
@@ -74,6 +80,7 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Livro sobre boas práticas de programação',
       preco: 89.90,
       estoque: 60,
+      imagem: 'https://imgur.com/qyH8ab4.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Livros')?.id,
     },
     {
@@ -81,6 +88,7 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Box com os 7 livros da saga',
       preco: 250.00,
       estoque: 25,
+      imagem: 'https://imgur.com/J2EY3QU.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Livros')?.id,
     },
     
@@ -90,6 +98,7 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Kit com 5 panelas antiaderentes',
       preco: 299.90,
       estoque: 40,
+      imagem: 'https://imgur.com/xnYeh2L.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Casa e Decoração')?.id,
     },
     {
@@ -97,6 +106,7 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Almofada 45x45cm com estampa moderna',
       preco: 39.90,
       estoque: 150,
+      imagem: 'https://imgur.com/9XnFffb.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Casa e Decoração')?.id,
     },
     
@@ -106,6 +116,7 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Bola oficial de futebol campo',
       preco: 120.00,
       estoque: 70,
+      imagem: 'https://imgur.com/GnSzqzv.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Esportes')?.id,
     },
     {
@@ -113,6 +124,7 @@ export async function seedProdutos(dataSource: DataSource) {
       descricao: 'Colchonete antiderrapante 1,80m',
       preco: 89.90,
       estoque: 90,
+      imagem: 'https://imgur.com/VDTCzpM.jpeg',
       categoriaId: categorias.find(c => c.nome === 'Esportes')?.id,
     },
   ];

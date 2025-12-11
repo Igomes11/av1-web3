@@ -1,65 +1,54 @@
 import { Navbar, Container, Nav, Button } from "react-bootstrap";
-import type { User, CurrentView } from "../types/types";
+import { Link, useNavigate } from "react-router-dom"; // Importa Link e hook de navegação
+import type { User } from "../types/types";
 
-/**
- * Props do componente de barra de navegação
- * @interface NavigationBarProps
- */
+// Interface simplificada: removemos onViewChange e onGoToCatalog
 interface NavigationBarProps {
-  /** Dados do usuário logado */
   user: User;
-  /** Função para alterar a view atual da aplicação */
-  onViewChange: (view: CurrentView) => void;
-  /** Função para voltar ao catálogo */
-  onGoToCatalog: () => void;
-  /** Função para realizar logout */
   onLogout: () => void;
-  /** Quantidade de itens no carrinho */
   cartCount: number;
 }
-/**
- * Componente de barra de navegação do e-commerce
- * Fornece navegação entre as diferentes seções da aplicação
- * e exibe informações do usuário logado
- */
+
 const NavigationBar: React.FC<NavigationBarProps> = ({
   user,
-  onViewChange,
-  onGoToCatalog,
   onLogout,
   cartCount,
 }) => {
+  const navigate = useNavigate();
+
   return (
     <Navbar bg="dark" variant="dark" expand="lg" sticky="top">
       <Container>
-        <Navbar.Brand href="#" onClick={onGoToCatalog}>
+        {/* Navbar.Brand agora funciona como um Link para a home */}
+        <Navbar.Brand as={Link} to="/">
           E-commerce AV1
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
-            <Nav.Link onClick={() => onViewChange("categories")}>
+            <Nav.Link as={Link} to="/categorias">
               Categorias
             </Nav.Link>
-            <Nav.Link onClick={onGoToCatalog}>
+            <Nav.Link as={Link} to="/">
               Catálogo
             </Nav.Link>
-            <Nav.Link onClick={() => onViewChange("history")}>
+            <Nav.Link as={Link} to="/meus-pedidos">
               Meus Pedidos
             </Nav.Link>
           </Nav>
           <Nav className="align-items-center">
-            {/* NOVO/MODIFICADO: Link para o Perfil/Endereços. Usa o e-mail como texto de boas-vindas */}
-            <Nav.Link onClick={() => onViewChange("profile")} className="text-info me-3">
+            <Nav.Link as={Link} to="/perfil" className="text-info me-3">
               Olá, <span className="fw-bold">{user.email}</span>
             </Nav.Link>
+            
             <Button
               variant={cartCount > 0 ? "warning" : "outline-light"}
               className="mx-2 position-relative"
-              onClick={() => onViewChange("cart")}
+              onClick={() => navigate("/carrinho")}
             >
               🛒 Carrinho ({cartCount})
             </Button>
+            
             <Button variant="outline-danger" onClick={onLogout}>
               Sair
             </Button>

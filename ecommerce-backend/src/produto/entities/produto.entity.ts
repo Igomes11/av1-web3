@@ -64,6 +64,10 @@ export class Produto {
   @Column({ default: 0 })
   estoque: number;
 
+  @Column({ default: 0 })
+  reserved: number;
+
+
   /**
    * URL ou nome do arquivo da imagem do produto
    * Se não fornecida, usa uma imagem padrão 'placeholder.png'

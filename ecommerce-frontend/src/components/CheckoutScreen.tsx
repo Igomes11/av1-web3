@@ -17,43 +17,24 @@ import type { Cart } from "../services/cartService";
 const API_PEDIDO_URL = "http://localhost:3000/pedido";
 const API_ENDERECO_URL = "http://localhost:3000/endereco";
 
-/**
- * DTO para criação de item do pedido
- * @interface ItemPedidoDto
- */
 interface ItemPedidoDto {
-  /** ID do produto a ser adicionado no pedido */
   produtoId: number;
-  /** Quantidade do produto no pedido */
   quantidade: number;
 }
 
-/**
- * DTO para criação de um novo pedido
- * @interface CreatePedidoDto
- */
 interface CreatePedidoDto {
-  /** ID do cliente que está realizando o pedido */
   clienteId: number;
-  /** ID do endereço de entrega selecionado */
   enderecoId: number;
-  /** Lista de itens do pedido */
   itens: ItemPedidoDto[];
 }
 
-/**
- * Props do componente de tela de checkout
- * @interface CheckoutScreenProps
- */
 interface CheckoutScreenProps {
-  /** Dados do usuário logado */
   user: User;
-  /** Carrinho completo do usuário */
   cart: Cart | null;
-  /** Função para limpar o carrinho após finalização do pedido */
   onClearCart: () => Promise<void>;
-  /** Função para mudar a view atual da aplicação */
   onChangeView: (view: CurrentView) => void;
+  // Nova prop opcional para integrar com o fluxo de pagamento
+  onOrderCreated?: (orderId: number, total: number) => void;
 }
 
 const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
@@ -61,6 +42,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   cart,
   onClearCart,
   onChangeView,
+  onOrderCreated,
 }) => {
   const [addresses, setAddresses] = useState<Endereco[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | undefined>(undefined);
@@ -68,9 +50,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
-  /**
-   * Efeito para carregar endereços do cliente
-   */
+  // Carrega endereços
   useEffect(() => {
     const fetchData = async () => {
       if (!cart || cart.itens.length === 0) {
@@ -79,13 +59,11 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
       }
 
       try {
-        // Busca Endereços do Cliente
         const addressResponse = await axios.get<Endereco[]>(
           `${API_ENDERECO_URL}/cliente/${user.id}`
         );
         setAddresses(addressResponse.data);
 
-        // Seleciona o endereço principal ou o primeiro da lista
         const principalAddress = addressResponse.data.find((a) => a.principal);
         if (principalAddress) {
           setSelectedAddressId(principalAddress.id);
@@ -102,10 +80,6 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     fetchData();
   }, [user.id, cart]);
 
-  /**
-   * Calcula o valor total do pedido
-   * @returns {number} Valor total do pedido
-   */
   const calculateTotal = () => {
     if (!cart) return 0;
     return cart.itens.reduce((total, item) => {
@@ -113,9 +87,6 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     }, 0);
   };
 
-  /**
-   * Processa a finalização do pedido
-   */
   const handlePlaceOrder = async () => {
     if (!selectedAddressId || !cart) {
       setError("Por favor, selecione um endereço de entrega.");
@@ -125,7 +96,6 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     setIsPlacingOrder(true);
     setError(null);
 
-    // Prepara dados do pedido
     const itensPedidoDto: ItemPedidoDto[] = cart.itens.map((item) => ({
       produtoId: item.produto.id,
       quantidade: item.quantidade,
@@ -137,18 +107,25 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
       itens: itensPedidoDto,
     };
 
+    const cartTotal = calculateTotal();
+
     try {
-      // Envia pedido para criação no backend
+      // 1. Cria o pedido
       const response = await axios.post(API_PEDIDO_URL, orderData);
 
-      // Limpa carrinho e exibe feedback
+      // 2. Limpa o carrinho
       await onClearCart();
-      alert(
-        `Pedido #${response.data.id} criado com sucesso! Status: AGUARDANDO_PAGAMENTO.`
-      );
 
-      // Redireciona para histórico de pedidos
-      onChangeView("history");
+      // 3. Decisão de fluxo: Pagamento ou Histórico
+      if (onOrderCreated) {
+         // Fluxo novo: Vai para a tela de pagamento
+         onOrderCreated(response.data.id, cartTotal);
+      } else {
+         // Fluxo antigo (fallback): Vai para o histórico
+         alert(`Pedido #${response.data.id} criado com sucesso! Status: AGUARDANDO_PAGAMENTO.`);
+         onChangeView("history");
+      }
+      
     } catch (err) {
       let errorMsg = "Erro ao finalizar o pedido. Verifique o estoque e tente novamente.";
       
@@ -191,8 +168,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
     return (
       <Container className="mt-5">
         <Alert variant="danger">
-          Você precisa ter pelo menos um endereço cadastrado para finalizar o
-          pedido.
+          Você precisa ter pelo menos um endereço cadastrado para finalizar o pedido.
         </Alert>
         <Button onClick={() => onChangeView("profile")}>
           Cadastrar Endereço
@@ -203,7 +179,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
 
   return (
     <Container className="my-5">
-      <h2>💰 Finalizar Pedido</h2>
+      <h2> Finalizar Pedido</h2>
       <Row>
         <Col md={7}>
           <Card className="mb-4">
@@ -215,6 +191,7 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
                 </Form.Label>
                 <Form.Select
                   aria-labelledby="selectAddressLabel"
+                  title='Selecione o endereço de entrega'
                   value={selectedAddressId || ""}
                   onChange={(e) =>
                     setSelectedAddressId(parseInt(e.target.value))

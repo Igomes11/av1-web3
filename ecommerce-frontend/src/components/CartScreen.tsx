@@ -14,11 +14,8 @@ import { Container, Row, Col, Card, ListGroup, Button, Alert, Spinner } from 're
 import type { CurrentView } from '../types/types';
 import { formatPrice } from '../utils/format';
 import type { Cart } from '../services/cartService';
+// Importação do CSS (geralmente já é importado no App.tsx ou main.tsx, então a classe estará disponível)
 
-/**
- * Interface de propriedades do componente CartScreen
- * @interface CartScreenProps
- */
 interface CartScreenProps {
     cart: Cart | null;
     isLoading: boolean;
@@ -27,10 +24,6 @@ interface CartScreenProps {
     onChangeView: (view: CurrentView) => void;
 }
 
-/**
- * Componente de carrinho de compras
- * Gerencia a visualização e interações com os itens do carrinho
- */
 const CartScreen: React.FC<CartScreenProps> = ({ cart, isLoading, onUpdateItem, onRemoveItem, onChangeView }) => {
     if (isLoading) {
         return (
@@ -65,20 +58,34 @@ const CartScreen: React.FC<CartScreenProps> = ({ cart, isLoading, onUpdateItem, 
                                 key={item.id} 
                                 className="d-flex justify-content-between align-items-center"
                             >
-                                <div>
-                                    <h5 className="mb-1">{item.produto.nome}</h5>
-                                    <p className="mb-0 text-muted">
-                                        R$ {formatPrice(item.produto.preco)} x {item.quantidade} un.
-                                    </p>
-                                    <p className="fw-bold">
-                                        Subtotal: R$ {formatPrice(item.produto.preco * item.quantidade)}
-                                    </p>
-                                    {item.produto.estoque <= item.quantidade && (
-                                        <small className="text-danger">
-                                            Estoque Máximo Atingido ({item.produto.estoque})!
-                                        </small>
-                                    )}
+                                <div className="d-flex align-items-center">
+                                    {/* IMAGEM DO PRODUTO (Com classe CSS em vez de style inline) */}
+                                    <img 
+                                        src={
+                                            item.produto.imagem && item.produto.imagem.startsWith('http')
+                                            ? item.produto.imagem
+                                            : `https://placehold.co/100?text=${item.produto.nome.substring(0,3)}`
+                                        }
+                                        alt={item.produto.nome}
+                                        className="cart-item-img rounded" 
+                                    />
+
+                                    <div>
+                                        <h5 className="mb-1">{item.produto.nome}</h5>
+                                        <p className="mb-0 text-muted">
+                                            R$ {formatPrice(item.produto.preco)} x {item.quantidade} un.
+                                        </p>
+                                        <p className="fw-bold">
+                                            Subtotal: R$ {formatPrice(item.produto.preco * item.quantidade)}
+                                        </p>
+                                        {item.produto.estoque <= item.quantidade && (
+                                            <small className="text-danger">
+                                                Estoque Máximo Atingido ({item.produto.estoque})!
+                                            </small>
+                                        )}
+                                    </div>
                                 </div>
+                                
                                 <div>
                                     <Button 
                                         variant="outline-secondary" 

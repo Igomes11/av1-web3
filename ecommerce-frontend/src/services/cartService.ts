@@ -11,6 +11,7 @@ export interface CartItem {
     preco: number;
     descricao: string;
     estoque: number;
+    imagem: string; // <--- ADICIONADO AQUI
   };
 }
 

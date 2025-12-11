@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Container } from 'react-bootstrap';
+import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import AuthScreen from './AuthScreen';
 import NavigationBar from './components/NavigationBar';
 import CategoryScreen from './components/CategoryScreen';
@@ -9,7 +10,8 @@ import CartScreen from './components/CartScreen';
 import CheckoutScreen from './components/CheckoutScreen';
 import OrderHistory from './components/OrderHistory';
 import ProfileScreen from './components/ProfileScreen';
-import type { CurrentView, User } from './types/types';
+import PaymentScreen from './components/PaymentScreen';
+import type { User } from './types/types';
 import { cartService, type Cart } from './services/cartService';
 import axios from 'axios';
 
@@ -22,18 +24,40 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
+// Componente Wrapper para injetar o ID da categoria no Catálogo vindo da URL
+const CatalogWithCategory = ({ cart, onSelectProduct }: { cart: Cart | null, onSelectProduct: (id: number) => void }) => {
+  const { id } = useParams();
+  return (
+    <ProductCatalog 
+      cart={cart} 
+      categoryId={id ? Number(id) : undefined} 
+      onSelectProduct={onSelectProduct}
+    />
+  );
+};
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [view, setView] = useState<CurrentView>('auth');
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [selectedCategoryName, setSelectedCategoryName] = useState<string>('');
-
-  // Estado do carrinho (integrado com API)
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoadingCart, setIsLoadingCart] = useState(false);
+  
+  // Estado para dados do pagamento
+  const [paymentData, setPaymentData] = useState<{orderId: number, total: number} | null>(null);
+  
+  const navigate = useNavigate();
 
-  // Carrega o carrinho do backend quando o usuário faz login
+  // Função auxiliar para mapear nomes de views antigas para rotas novas
+  const handleViewChange = (view: string) => {
+    switch (view) {
+      case 'checkout': navigate('/checkout'); break;
+      case 'cart': navigate('/carrinho'); break;
+      case 'catalog': navigate('/'); break;
+      case 'history': navigate('/meus-pedidos'); break;
+      case 'profile': navigate('/perfil'); break;
+      default: navigate('/');
+    }
+  };
+
   const loadCart = async () => {
     if (!user) return;
     try {
@@ -53,34 +77,18 @@ function App() {
     }
   }, [user]);
 
-  // Handler de login
   const handleLogin = (user: User) => {
     setUser(user);
-    setView('catalog');
+    navigate('/'); 
   };
 
-  // Handler de logout
   const handleLogout = () => {
     setUser(null);
-    setView('auth');
     setCart(null);
-    setSelectedCategoryId(null);
-    setSelectedCategoryName(''); 
+    localStorage.removeItem('token');
+    navigate('/');
   };
 
-  const handleSelectCategory = (categoryId: number, categoryName: string) => {
-    setSelectedCategoryId(categoryId);
-    setSelectedCategoryName(categoryName);
-    setView('catalog');
-  };
-
-  const handleGoToCatalog = () => {
-    setSelectedCategoryId(null);
-    setSelectedCategoryName('');
-    setView('catalog');
-  };
-
-  // Adiciona item ao carrinho via API
   const handleAddToCart = async (productId: number, quantidade: number) => {
     try {
       const updatedCart = await cartService.addItem(productId, quantidade);
@@ -91,7 +99,6 @@ function App() {
     }
   };
 
-  // Atualiza quantidade de um item no carrinho
   const handleUpdateCartItem = async (itemId: number, quantidade: number) => {
     try {
       if (quantidade <= 0) {
@@ -102,11 +109,9 @@ function App() {
       await loadCart();
     } catch (error) {
       console.error("Erro ao atualizar item do carrinho:", error);
-      alert("Erro ao atualizar item do carrinho.");
     }
   };
 
-  // Remove item do carrinho
   const handleRemoveCartItem = async (itemId: number) => {
     try {
       await cartService.removeItem(itemId);
@@ -116,7 +121,6 @@ function App() {
     }
   };
 
-  // Limpa o carrinho (usado após finalizar pedido)
   const handleClearCart = async () => {
     try {
       await cartService.clearCart();
@@ -126,101 +130,95 @@ function App() {
     }
   };
 
-  // Calcula total de itens no carrinho para exibir no badge
+  const handleOrderCreated = (orderId: number, total: number) => {
+    setPaymentData({ orderId, total });
+    navigate('/pagamento');
+  };
+
   const cartItemCount = cart?.itens.reduce((acc, item) => acc + item.quantidade, 0) ?? 0;
 
-  const renderView = () => {
-    if (!user || view === 'auth') {
-      return <AuthScreen onLogin={handleLogin} />;
-    }
-
-    switch (view) {
-      case 'categories':
-        return <CategoryScreen onSelectCategory={handleSelectCategory} onChangeView={setView} />;
-
-      case 'catalog':
-        return (
-          <ProductCatalog 
-            onSelectProduct={(id) => { 
-              setSelectedProductId(id); 
-              setView('details'); 
-            }} 
-            cart={cart}
-            categoryId={selectedCategoryId ?? undefined}
-            categoryName={selectedCategoryName || undefined}
-          />
-        );
-
-      case 'details':
-        if (selectedProductId === null) {
-          setView('catalog');
-          return null; 
-        }
-        return (
-          <ProductDetails 
-            productId={selectedProductId} 
-            onChangeView={setView} 
-            cart={cart}
-            onAddToCart={handleAddToCart}
-          />
-        );
-
-      case 'cart':
-        return (
-          <CartScreen 
-            cart={cart}
-            isLoading={isLoadingCart}
-            onUpdateItem={handleUpdateCartItem} 
-            onRemoveItem={handleRemoveCartItem}
-            onChangeView={setView}
-          />
-        );
-
-      case 'checkout':
-        return ( 
-          <CheckoutScreen 
-            user={user}
-            cart={cart}
-            onClearCart={handleClearCart}
-            onChangeView={setView}
-          />
-        );
-
-      case 'history':
-        return <OrderHistory user={user} onChangeView={setView} />; 
-      
-      case 'profile':
-        return <ProfileScreen user={user} onChangeView={setView} />; 
-
-      default:
-        return (
-          <ProductCatalog 
-            onSelectProduct={(id) => { 
-              setSelectedProductId(id); 
-              setView('details'); 
-            }} 
-            cart={cart}
-            categoryId={selectedCategoryId ?? undefined}
-            categoryName={selectedCategoryName || undefined}
-          />
-        );
-    }
-  };
+  if (!user) {
+    return <AuthScreen onLogin={handleLogin} />;
+  }
 
   return (
     <>
-      {user && (
-        <NavigationBar 
-          user={user} 
-          onViewChange={setView} 
-          onGoToCatalog={handleGoToCatalog}
-          onLogout={handleLogout} 
-          cartCount={cartItemCount}
-        />
-      )}
+      <NavigationBar 
+        user={user} 
+        onLogout={handleLogout} 
+        cartCount={cartItemCount}
+      />
       
       <Container className="mt-4">
-        {renderView()}
+        <Routes>
+          <Route path="/" element={
+            <ProductCatalog 
+              onSelectProduct={(id) => navigate(`/produto/${id}`)} 
+              cart={cart}
+            />
+          } />
+
+          <Route path="/categorias" element={
+            <CategoryScreen 
+              onSelectCategory={(id) => navigate(`/categoria/${id}`)} 
+              onChangeView={handleViewChange} 
+            />
+          } />
+
+          <Route path="/categoria/:id" element={
+            <CatalogWithCategory 
+              cart={cart} 
+              onSelectProduct={(id) => navigate(`/produto/${id}`)} 
+            />
+          } />
+
+          <Route path="/produto/:id" element={
+            <ProductDetails 
+              onChangeView={handleViewChange} 
+              cart={cart}
+              onAddToCart={handleAddToCart}
+            />
+          } />
+
+          <Route path="/carrinho" element={
+            <CartScreen 
+              cart={cart}
+              isLoading={isLoadingCart}
+              onUpdateItem={handleUpdateCartItem} 
+              onRemoveItem={handleRemoveCartItem}
+              onChangeView={handleViewChange} // <--- AQUI ESTAVA O ERRO (Antes era navigate('/'))
+            />
+          } />
+
+          <Route path="/checkout" element={ 
+            <CheckoutScreen 
+              user={user}
+              cart={cart}
+              onClearCart={handleClearCart}
+              onChangeView={handleViewChange} // <--- AQUI TAMBÉM
+              onOrderCreated={handleOrderCreated}
+            />
+          } />
+
+          <Route path="/pagamento" element={
+            <PaymentScreen 
+              orderId={paymentData?.orderId ?? null}
+              total={paymentData?.total ?? 0}
+              onPaymentSuccess={() => navigate('/meus-pedidos')}
+              onCancel={() => navigate('/meus-pedidos')}
+            />
+          } />
+
+          <Route path="/meus-pedidos" element={
+            <OrderHistory user={user} onChangeView={handleViewChange} />
+          } />
+          
+          <Route path="/perfil" element={
+            <ProfileScreen user={user} onChangeView={handleViewChange} />
+          } />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </Container>
     </>
   );
